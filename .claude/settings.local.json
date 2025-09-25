@@ -6,7 +6,9 @@
       "Bash(git push:*)",
       "Bash(timeout:*)",
       "Bash(git pull:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
