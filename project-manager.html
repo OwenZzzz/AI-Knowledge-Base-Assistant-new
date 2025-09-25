@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目管理 - AI知识库助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #1e1e1e;
+            color: #cccccc;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* 侧边栏样式 */
+        .sidebar {
+            width: 280px;
+            background: #252526;
+            border-right: 1px solid #3e3e42;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+        }
+
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 16px;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+        }
+
+        .nav-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background-color: #2a2d2e;
+        }
+
+        .nav-item.active {
+            background-color: #094771;
+            border-left-color: #007acc;
+            color: #ffffff;
+        }
+
+        .nav-icon {
+            margin-right: 8px;
+            width: 16px;
+            display: inline-block;
+        }
+
+        /* 主内容区样式 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            height: 60px;
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid #464647;
+            background: #3c3c3c;
+            color: #cccccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #464647;
+            border-color: #007acc;
+        }
+
+        .btn.primary {
+            background: #007acc;
+            border-color: #007acc;
+            color: #ffffff;
+        }
+
+        .btn.primary:hover {
+            background: #005a9e;
+        }
+
+        /* 搜索和筛选栏 */
+        .filter-bar {
+            padding: 16px 24px;
+            background: #252526;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            max-width: 300px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px 8px 36px;
+            background: #3c3c3c;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            color: #cccccc;
+            font-size: 14px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+        }
+
+        .filter-select {
+            padding: 8px 12px;
+            background: #3c3c3c;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            color: #cccccc;
+            font-size: 14px;
+        }
+
+        .view-toggle {
+            display: flex;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .view-btn {
+            padding: 8px 12px;
+            background: #3c3c3c;
+            border: none;
+            color: #cccccc;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .view-btn.active {
+            background: #007acc;
+            color: #ffffff;
+        }
+
+        /* 内容区域 */
+        .content-area {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        /* 项目网格视图 */
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .project-card {
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .project-card:hover {
+            border-color: #007acc;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 122, 204, 0.2);
+        }
+
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .project-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+
+        .project-status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-planning {
+            background: #3a3a3a;
+            color: #cccccc;
+        }
+
+        .status-active {
+            background: #1a4d3a;
+            color: #4ade80;
+        }
+
+        .status-completed {
+            background: #1a3d4d;
+            color: #38bdf8;
+        }
+
+        .status-paused {
+            background: #4d3a1a;
+            color: #fbbf24;
+        }
+
+        .project-description {
+            color: #a0a0a0;
+            font-size: 14px;
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
+
+        .project-progress {
+            margin-bottom: 16px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #a0a0a0;
+            margin-bottom: 4px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #3e3e42;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007acc, #38bdf8);
+            transition: width 0.3s ease;
+        }
+
+        .project-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #a0a0a0;
+        }
+
+        .project-due {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .due-urgent {
+            color: #ef4444;
+        }
+
+        .due-warning {
+            color: #f59e0b;
+        }
+
+        .project-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 2px 6px;
+            background: #3e3e42;
+            border-radius: 10px;
+            font-size: 10px;
+            color: #cccccc;
+        }
+
+        .priority-high {
+            border-left: 4px solid #ef4444;
+        }
+
+        .priority-medium {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .priority-low {
+            border-left: 4px solid #10b981;
+        }
+
+        /* 项目列表视图 */
+        .projects-list {
+            display: none;
+        }
+
+        .projects-list.active {
+            display: block;
+        }
+
+        .list-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 120px 100px 120px 80px;
+            gap: 16px;
+            padding: 12px 16px;
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 4px 4px 0 0;
+            font-weight: bold;
+            font-size: 12px;
+            color: #a0a0a0;
+            text-transform: uppercase;
+        }
+
+        .list-item {
+            display: grid;
+            grid-template-columns: 2fr 1fr 120px 100px 120px 80px;
+            gap: 16px;
+            padding: 16px;
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-top: none;
+            align-items: center;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+
+        .list-item:hover {
+            background: #3a3a3a;
+        }
+
+        .list-item:last-child {
+            border-radius: 0 0 4px 4px;
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #a0a0a0;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            color: #ffffff;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+            color: #cccccc;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 8px 12px;
+            background: #3c3c3c;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            color: #cccccc;
+            font-size: 14px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 8px 12px;
+            background: #3c3c3c;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            color: #cccccc;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 8px 12px;
+            background: #3c3c3c;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            color: #cccccc;
+            font-size: 14px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #3e3e42;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        /* 任务列表样式 */
+        .tasks-section {
+            margin-top: 24px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .task-list {
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+        }
+
+        .task-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .task-item:last-child {
+            border-bottom: none;
+        }
+
+        .task-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .task-content {
+            flex: 1;
+        }
+
+        .task-title {
+            font-weight: 500;
+            color: #cccccc;
+            margin-bottom: 2px;
+        }
+
+        .task-title.completed {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        .task-meta {
+            font-size: 12px;
+            color: #a0a0a0;
+        }
+
+        .task-priority {
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .task-priority.high {
+            background: #4d1a1a;
+            color: #ef4444;
+        }
+
+        .task-priority.medium {
+            background: #4d3a1a;
+            color: #f59e0b;
+        }
+
+        .task-priority.low {
+            background: #1a4d3a;
+            color: #10b981;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .task-btn {
+            padding: 4px 8px;
+            background: none;
+            border: 1px solid #464647;
+            border-radius: 3px;
+            color: #a0a0a0;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .task-btn:hover {
+            background: #3e3e42;
+            color: #cccccc;
+        }
+
+        /* 空状态样式 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #a0a0a0;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-title {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #cccccc;
+        }
+
+        .empty-description {
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 240px;
+            }
+
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .list-header,
+            .list-item {
+                grid-template-columns: 2fr 1fr 80px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">项目管理</div>
+                <ul class="sidebar-nav">
+                    <li class="nav-item active" data-view="projects">
+                        <span class="nav-icon">📋</span>所有项目
+                    </li>
+                    <li class="nav-item" data-view="active">
+                        <span class="nav-icon">🚀</span>进行中
+                    </li>
+                    <li class="nav-item" data-view="completed">
+                        <span class="nav-icon">✅</span>已完成
+                    </li>
+                    <li class="nav-item" data-view="overdue">
+                        <span class="nav-icon">⚠️</span>逾期项目
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- 头部 -->
+            <div class="header">
+                <div class="header-title">项目概览</div>
+                <div class="header-actions">
+                    <button class="btn" onclick="exportData()">导出数据</button>
+                    <button class="btn primary" onclick="showCreateProjectModal()">新建项目</button>
+                </div>
+            </div>
+
+            <!-- 搜索和筛选栏 -->
+            <div class="filter-bar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" placeholder="搜索项目..." id="searchInput">
+                </div>
+                <select class="filter-select" id="statusFilter">
+                    <option value="">所有状态</option>
+                    <option value="planning">计划中</option>
+                    <option value="active">进行中</option>
+                    <option value="completed">已完成</option>
+                    <option value="paused">暂停</option>
+                </select>
+                <select class="filter-select" id="priorityFilter">
+                    <option value="">所有优先级</option>
+                    <option value="high">高优先级</option>
+                    <option value="medium">中优先级</option>
+                    <option value="low">低优先级</option>
+                </select>
+                <select class="filter-select" id="tagFilter">
+                    <option value="">所有标签</option>
+                    <option value="work">工作</option>
+                    <option value="study">学习</option>
+                    <option value="personal">个人</option>
+                </select>
+                <div class="view-toggle">
+                    <button class="view-btn active" data-view="grid">网格</button>
+                    <button class="view-btn" data-view="list">列表</button>
+                </div>
+            </div>
+
+            <!-- 内容区域 -->
+            <div class="content-area">
+                <!-- 项目网格视图 -->
+                <div class="projects-grid" id="projectsGrid">
+                    <!-- 项目卡片将通过JavaScript动态生成 -->
+                </div>
+
+                <!-- 项目列表视图 -->
+                <div class="projects-list" id="projectsList">
+                    <div class="list-header">
+                        <div>项目名称</div>
+                        <div>状态</div>
+                        <div>进度</div>
+                        <div>优先级</div>
+                        <div>截止日期</div>
+                        <div>操作</div>
+                    </div>
+                    <!-- 列表项将通过JavaScript动态生成 -->
+                </div>
+
+                <!-- 空状态 -->
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">📋</div>
+                    <div class="empty-title">暂无项目</div>
+                    <div class="empty-description">点击"新建项目"开始创建您的第一个项目</div>
+                    <button class="btn primary" onclick="showCreateProjectModal()">新建项目</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建/编辑项目模态框 -->
+    <div class="modal" id="projectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">新建项目</div>
+                <button class="close-btn" onclick="closeModal('projectModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="projectForm">
+                    <div class="form-group">
+                        <label class="form-label">项目名称</label>
+                        <input type="text" class="form-input" id="projectName" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">项目描述</label>
+                        <textarea class="form-textarea" id="projectDescription"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">状态</label>
+                            <select class="form-select" id="projectStatus">
+                                <option value="planning">计划中</option>
+                                <option value="active">进行中</option>
+                                <option value="completed">已完成</option>
+                                <option value="paused">暂停</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">优先级</label>
+                            <select class="form-select" id="projectPriority">
+                                <option value="low">低</option>
+                                <option value="medium">中</option>
+                                <option value="high">高</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">开始日期</label>
+                            <input type="date" class="form-input" id="projectStartDate">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">截止日期</label>
+                            <input type="date" class="form-input" id="projectDueDate">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">标签（用逗号分隔）</label>
+                        <input type="text" class="form-input" id="projectTags" placeholder="例如：工作,重要,客户项目">
+                    </div>
+                </form>
+
+                <!-- 任务管理部分 -->
+                <div class="tasks-section" id="tasksSection" style="display: none;">
+                    <div class="section-title">
+                        任务列表
+                        <button class="btn" onclick="showCreateTaskModal()">添加任务</button>
+                    </div>
+                    <div class="task-list" id="taskList">
+                        <!-- 任务项将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="closeModal('projectModal')">取消</button>
+                <button type="button" class="btn primary" onclick="saveProject()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建/编辑任务模态框 -->
+    <div class="modal" id="taskModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="taskModalTitle">新建任务</div>
+                <button class="close-btn" onclick="closeModal('taskModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <div class="form-group">
+                        <label class="form-label">任务名称</label>
+                        <input type="text" class="form-input" id="taskName" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">任务描述</label>
+                        <textarea class="form-textarea" id="taskDescription"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">优先级</label>
+                            <select class="form-select" id="taskPriority">
+                                <option value="low">低</option>
+                                <option value="medium">中</option>
+                                <option value="high">高</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">截止日期</label>
+                            <input type="date" class="form-input" id="taskDueDate">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="closeModal('taskModal')">取消</button>
+                <button type="button" class="btn primary" onclick="saveTask()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let projects = [];
+        let currentProject = null;
+        let currentTask = null;
+        let currentView = 'grid';
+        let currentFilter = 'projects';
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProjects();
+            initEventListeners();
+            renderProjects();
+        });
+
+        // 初始化事件监听器
+        function initEventListeners() {
+            // 侧边栏导航
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.dataset.view;
+                    renderProjects();
+                });
+            });
+
+            // 视图切换
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentView = this.dataset.view;
+                    toggleView();
+                });
+            });
+
+            // 搜索和筛选
+            document.getElementById('searchInput').addEventListener('input', renderProjects);
+            document.getElementById('statusFilter').addEventListener('change', renderProjects);
+            document.getElementById('priorityFilter').addEventListener('change', renderProjects);
+            document.getElementById('tagFilter').addEventListener('change', renderProjects);
+
+            // 模态框点击外部关闭
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeModal(this.id);
+                    }
+                });
+            });
+        }
+
+        // 加载项目数据
+        function loadProjects() {
+            const savedProjects = localStorage.getItem('projects');
+            if (savedProjects) {
+                projects = JSON.parse(savedProjects);
+            } else {
+                // 示例数据
+                projects = [
+                    {
+                        id: 1,
+                        name: '网站重构项目',
+                        description: '对公司官网进行全面重构，提升用户体验和性能',
+                        status: 'active',
+                        priority: 'high',
+                        startDate: '2024-01-01',
+                        dueDate: '2024-03-15',
+                        tags: ['工作', '前端', '重要'],
+                        tasks: [
+                            { id: 1, name: '需求分析', description: '收集和分析用户需求', priority: 'high', completed: true, dueDate: '2024-01-15' },
+                            { id: 2, name: '设计原型', description: '创建页面设计原型', priority: 'high', completed: true, dueDate: '2024-01-30' },
+                            { id: 3, name: '前端开发', description: '实现前端页面和交互', priority: 'high', completed: false, dueDate: '2024-02-28' },
+                            { id: 4, name: '后端接口', description: '开发后端API接口', priority: 'medium', completed: false, dueDate: '2024-02-20' },
+                            { id: 5, name: '测试部署', description: '测试和部署上线', priority: 'medium', completed: false, dueDate: '2024-03-10' }
+                        ],
+                        createdAt: '2024-01-01'
+                    },
+                    {
+                        id: 2,
+                        name: '移动应用开发',
+                        description: '开发公司的移动端应用，支持iOS和Android平台',
+                        status: 'planning',
+                        priority: 'medium',
+                        startDate: '2024-02-01',
+                        dueDate: '2024-06-30',
+                        tags: ['工作', '移动端'],
+                        tasks: [
+                            { id: 1, name: '技术选型', description: '选择开发框架和技术栈', priority: 'high', completed: false, dueDate: '2024-02-15' },
+                            { id: 2, name: 'UI设计', description: '设计应用界面', priority: 'medium', completed: false, dueDate: '2024-03-01' }
+                        ],
+                        createdAt: '2024-01-15'
+                    },
+                    {
+                        id: 3,
+                        name: '学习Vue.js',
+                        description: '深入学习Vue.js框架，掌握现代前端开发技能',
+                        status: 'active',
+                        priority: 'medium',
+                        startDate: '2024-01-10',
+                        dueDate: '2024-04-10',
+                        tags: ['学习', '前端'],
+                        tasks: [
+                            { id: 1, name: '基础语法', description: '学习Vue基础语法和概念', priority: 'high', completed: true, dueDate: '2024-01-25' },
+                            { id: 2, name: '组件开发', description: '学习组件化开发', priority: 'high', completed: false, dueDate: '2024-02-15' },
+                            { id: 3, name: '状态管理', description: '学习Vuex状态管理', priority: 'medium', completed: false, dueDate: '2024-03-01' },
+                            { id: 4, name: '实战项目', description: '完成一个完整的Vue项目', priority: 'high', completed: false, dueDate: '2024-04-01' }
+                        ],
+                        createdAt: '2024-01-10'
+                    }
+                ];
+                saveProjects();
+            }
+        }
+
+        // 保存项目数据
+        function saveProjects() {
+            localStorage.setItem('projects', JSON.stringify(projects));
+        }
+
+        // 渲染项目列表
+        function renderProjects() {
+            const filteredProjects = getFilteredProjects();
+            
+            if (filteredProjects.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('projectsGrid').style.display = 'none';
+                document.getElementById('projectsList').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('emptyState').style.display = 'none';
+            
+            if (currentView === 'grid') {
+                renderGridView(filteredProjects);
+            } else {
+                renderListView(filteredProjects);
+            }
+        }
+
+        // 获取过滤后的项目
+        function getFilteredProjects() {
+            let filtered = [...projects];
+
+            // 按导航筛选
+            switch (currentFilter) {
+                case 'active':
+                    filtered = filtered.filter(p => p.status === 'active');
+                    break;
+                case 'completed':
+                    filtered = filtered.filter(p => p.status === 'completed');
+                    break;
+                case 'overdue':
+                    const today = new Date().toISOString().split('T')[0];
+                    filtered = filtered.filter(p => p.dueDate && p.dueDate < today && p.status !== 'completed');
+                    break;
+            }
+
+            // 搜索筛选
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            if (searchTerm) {
+                filtered = filtered.filter(p => 
+                    p.name.toLowerCase().includes(searchTerm) ||
+                    p.description.toLowerCase().includes(searchTerm) ||
+                    p.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            // 状态筛选
+            const statusFilter = document.getElementById('statusFilter').value;
+            if (statusFilter) {
+                filtered = filtered.filter(p => p.status === statusFilter);
+            }
+
+            // 优先级筛选
+            const priorityFilter = document.getElementById('priorityFilter').value;
+            if (priorityFilter) {
+                filtered = filtered.filter(p => p.priority === priorityFilter);
+            }
+
+            // 标签筛选
+            const tagFilter = document.getElementById('tagFilter').value;
+            if (tagFilter) {
+                filtered = filtered.filter(p => p.tags.includes(tagFilter));
+            }
+
+            return filtered;
+        }
+
+        // 渲染网格视图
+        function renderGridView(projectList) {
+            const grid = document.getElementById('projectsGrid');
+            grid.style.display = 'grid';
+            document.getElementById('projectsList').style.display = 'none';
+
+            grid.innerHTML = projectList.map(project => {
+                const progress = calculateProgress(project);
+                const dueStatus = getDueStatus(project.dueDate);
+                
+                return `
+                    <div class="project-card priority-${project.priority}" onclick="editProject(${project.id})">
+                        <div class="project-header">
+                            <div>
+                                <div class="project-title">${project.name}</div>
+                            </div>
+                            <div class="project-status status-${project.status}">
+                                ${getStatusText(project.status)}
+                            </div>
+                        </div>
+                        <div class="project-description">${project.description}</div>
+                        <div class="project-progress">
+                            <div class="progress-label">
+                                <span>进度</span>
+                                <span>${progress}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${progress}%"></div>
+                            </div>
+                        </div>
+                        <div class="project-meta">
+                            <div class="project-due ${dueStatus.class}">
+                                📅 ${formatDate(project.dueDate)}
+                            </div>
+                            <div class="project-tags">
+                                ${project.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 渲染列表视图
+        function renderListView(projectList) {
+            const list = document.getElementById('projectsList');
+            list.style.display = 'block';
+            document.getElementById('projectsGrid').style.display = 'none';
+
+            const listContent = projectList.map(project => {
+                const progress = calculateProgress(project);
+                const dueStatus = getDueStatus(project.dueDate);
+                
+                return `
+                    <div class="list-item" onclick="editProject(${project.id})">
+                        <div>
+                            <div style="font-weight: bold; margin-bottom: 4px;">${project.name}</div>
+                            <div style="font-size: 12px; color: #a0a0a0;">${project.description}</div>
+                        </div>
+                        <div class="project-status status-${project.status}">
+                            ${getStatusText(project.status)}
+                        </div>
+                        <div>
+                            <div class="progress-bar" style="width: 100px; height: 4px; margin-bottom: 4px;">
+                                <div class="progress-fill" style="width: ${progress}%"></div>
+                            </div>
+                            <div style="font-size: 12px; color: #a0a0a0;">${progress}%</div>
+                        </div>
+                        <div class="task-priority ${project.priority}">
+                            ${getPriorityText(project.priority)}
+                        </div>
+                        <div class="${dueStatus.class}" style="font-size: 12px;">
+                            ${formatDate(project.dueDate)}
+                        </div>
+                        <div>
+                            <button class="task-btn" onclick="event.stopPropagation(); editProject(${project.id})">编辑</button>
+                            <button class="task-btn" onclick="event.stopPropagation(); deleteProject(${project.id})">删除</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            list.innerHTML = `
+                <div class="list-header">
+                    <div>项目名称</div>
+                    <div>状态</div>
+                    <div>进度</div>
+                    <div>优先级</div>
+                    <div>截止日期</div>
+                    <div>操作</div>
+                </div>
+                ${listContent}
+            `;
+        }
+
+        // 切换视图
+        function toggleView() {
+            renderProjects();
+        }
+
+        // 计算项目进度
+        function calculateProgress(project) {
+            if (!project.tasks || project.tasks.length === 0) return 0;
+            const completedTasks = project.tasks.filter(task => task.completed).length;
+            return Math.round((completedTasks / project.tasks.length) * 100);
+        }
+
+        // 获取截止日期状态
+        function getDueStatus(dueDate) {
+            if (!dueDate) return { class: '', text: '无截止日期' };
+            
+            const today = new Date();
+            const due = new Date(dueDate);
+            const diffTime = due - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) {
+                return { class: 'due-urgent', text: '已逾期' };
+            } else if (diffDays <= 3) {
+                return { class: 'due-urgent', text: '即将到期' };
+            } else if (diffDays <= 7) {
+                return { class: 'due-warning', text: '一周内到期' };
+            } else {
+                return { class: '', text: '' };
+            }
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            const statusMap = {
+                'planning': '计划中',
+                'active': '进行中',
+                'completed': '已完成',
+                'paused': '暂停'
+            };
+            return statusMap[status] || status;
+        }
+
+        // 获取优先级文本
+        function getPriorityText(priority) {
+            const priorityMap = {
+                'high': '高',
+                'medium': '中',
+                'low': '低'
+            };
+            return priorityMap[priority] || priority;
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            if (!dateString) return '无截止日期';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('zh-CN');
+        }
+
+        // 显示创建项目模态框
+        function showCreateProjectModal() {
+            currentProject = null;
+            document.getElementById('modalTitle').textContent = '新建项目';
+            document.getElementById('projectForm').reset();
+            document.getElementById('tasksSection').style.display = 'none';
+            showModal('projectModal');
+        }
+
+        // 编辑项目
+        function editProject(projectId) {
+            currentProject = projects.find(p => p.id === projectId);
+            if (!currentProject) return;
+
+            document.getElementById('modalTitle').textContent = '编辑项目';
+            document.getElementById('projectName').value = currentProject.name;
+            document.getElementById('projectDescription').value = currentProject.description;
+            document.getElementById('projectStatus').value = currentProject.status;
+            document.getElementById('projectPriority').value = currentProject.priority;
+            document.getElementById('projectStartDate').value = currentProject.startDate;
+            document.getElementById('projectDueDate').value = currentProject.dueDate;
+            document.getElementById('projectTags').value = currentProject.tags.join(', ');
+            
+            document.getElementById('tasksSection').style.display = 'block';
+            renderTasks();
+            showModal('projectModal');
+        }
+
+        // 保存项目
+        function saveProject() {
+            const name = document.getElementById('projectName').value.trim();
+            if (!name) {
+                alert('请输入项目名称');
+                return;
+            }
+
+            const projectData = {
+                name: name,
+                description: document.getElementById('projectDescription').value.trim(),
+                status: document.getElementById('projectStatus').value,
+                priority: document.getElementById('projectPriority').value,
+                startDate: document.getElementById('projectStartDate').value,
+                dueDate: document.getElementById('projectDueDate').value,
+                tags: document.getElementById('projectTags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
+            };
+
+            if (currentProject) {
+                // 编辑现有项目
+                Object.assign(currentProject, projectData);
+            } else {
+                // 创建新项目
+                const newProject = {
+                    id: Date.now(),
+                    ...projectData,
+                    tasks: [],
+                    createdAt: new Date().toISOString().split('T')[0]
+                };
+                projects.push(newProject);
+            }
+
+            saveProjects();
+            renderProjects();
+            closeModal('projectModal');
+        }
+
+        // 删除项目
+        function deleteProject(projectId) {
+            if (confirm('确定要删除这个项目吗？此操作不可撤销。')) {
+                projects = projects.filter(p => p.id !== projectId);
+                saveProjects();
+                renderProjects();
+            }
+        }
+
+        // 渲染任务列表
+        function renderTasks() {
+            if (!currentProject || !currentProject.tasks) return;
+
+            const taskList = document.getElementById('taskList');
+            if (currentProject.tasks.length === 0) {
+                taskList.innerHTML = '<div style="padding: 20px; text-align: center; color: #a0a0a0;">暂无任务</div>';
+                return;
+            }
+
+            taskList.innerHTML = currentProject.tasks.map(task => `
+                <div class="task-item">
+                    <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} 
+                           onchange="toggleTask(${task.id})">
+                    <div class="task-content">
+                        <div class="task-title ${task.completed ? 'completed' : ''}">${task.name}</div>
+                        <div class="task-meta">
+                            ${task.description} • 截止: ${formatDate(task.dueDate)}
+                        </div>
+                    </div>
+                    <div class="task-priority ${task.priority}">${getPriorityText(task.priority)}</div>
+                    <div class="task-actions">
+                        <button class="task-btn" onclick="editTask(${task.id})">编辑</button>
+                        <button class="task-btn" onclick="deleteTask(${task.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 显示创建任务模态框
+        function showCreateTaskModal() {
+            currentTask = null;
+            document.getElementById('taskModalTitle').textContent = '新建任务';
+            document.getElementById('taskForm').reset();
+            showModal('taskModal');
+        }
+
+        // 编辑任务
+        function editTask(taskId) {
+            currentTask = currentProject.tasks.find(t => t.id === taskId);
+            if (!currentTask) return;
+
+            document.getElementById('taskModalTitle').textContent = '编辑任务';
+            document.getElementById('taskName').value = currentTask.name;
+            document.getElementById('taskDescription').value = currentTask.description;
+            document.getElementById('taskPriority').value = currentTask.priority;
+            document.getElementById('taskDueDate').value = currentTask.dueDate;
+            showModal('taskModal');
+        }
+
+        // 保存任务
+        function saveTask() {
+            const name = document.getElementById('taskName').value.trim();
+            if (!name) {
+                alert('请输入任务名称');
+                return;
+            }
+
+            const taskData = {
+                name: name,
+                description: document.getElementById('taskDescription').value.trim(),
+                priority: document.getElementById('taskPriority').value,
+                dueDate: document.getElementById('taskDueDate').value,
+                completed: false
+            };
+
+            if (currentTask) {
+                // 编辑现有任务
+                Object.assign(currentTask, taskData);
+            } else {
+                // 创建新任务
+                const newTask = {
+                    id: Date.now(),
+                    ...taskData
+                };
+                currentProject.tasks.push(newTask);
+            }
+
+            saveProjects();
+            renderTasks();
+            renderProjects(); // 更新项目进度
+            closeModal('taskModal');
+        }
+
+        // 切换任务完成状态
+        function toggleTask(taskId) {
+            const task = currentProject.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                saveProjects();
+                renderTasks();
+                renderProjects(); // 更新项目进度
+            }
+        }
+
+        // 删除任务
+        function deleteTask(taskId) {
+            if (confirm('确定要删除这个任务吗？')) {
+                currentProject.tasks = currentProject.tasks.filter(t => t.id !== taskId);
+                saveProjects();
+                renderTasks();
+                renderProjects(); // 更新项目进度
+            }
+        }
+
+        // 显示模态框
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+        }
+
+        // 关闭模态框
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        // 导出数据
+        function exportData() {
+            const dataStr = JSON.stringify(projects, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'projects-' + new Date().toISOString().split('T')[0] + '.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

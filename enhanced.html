@@ -1,0 +1,3778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 知识库助手 - 增强版</title>
+    <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            /* 加载动画 */
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            
+            .loading-spinner {
+                display: inline-block;
+                animation: spin 1s linear infinite;
+            }
+            
+            /* 通知弹窗样式 */
+            .notification {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                min-width: 300px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                transform: translateX(400px);
+                transition: transform 0.3s ease-in-out;
+            }
+            
+            .notification.show {
+                transform: translateX(0);
+            }
+            
+            .notification.success {
+                background-color: #27ae60;
+            }
+            
+            .notification.error {
+                background-color: #e74c3c;
+            }
+            
+            .notification.warning {
+                background-color: #f39c12;
+            }
+            
+            .notification .close-btn {
+                float: right;
+                background: none;
+                border: none;
+                color: white;
+                font-size: 18px;
+                cursor: pointer;
+                margin-left: 10px;
+            }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #1e1e1e;
+            color: #cccccc;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: #252526;
+            border-right: 1px solid #3e3e42;
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s ease;
+        }
+        
+        .sidebar.collapsed {
+            width: 40px;
+        }
+        
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+        }
+        
+        .sidebar-title {
+            font-weight: bold;
+            font-size: 14px;
+            color: #cccccc;
+        }
+        
+        .collapse-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            color: #cccccc;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        
+        .collapse-btn:hover {
+            background-color: #3e3e42;
+        }
+        
+        .sidebar.collapsed .sidebar-title,
+        .sidebar.collapsed .toolbar,
+        .sidebar.collapsed .file-tree {
+            display: none;
+        }
+        
+        .sidebar.collapsed .sidebar-header {
+            justify-content: center;
+        }
+        
+        .file-tree {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .editor-container {
+            flex: 1;
+            display: flex;
+        }
+        
+        .monaco-editor-wrapper {
+            flex: 1;
+            position: relative;
+        }
+        
+        .preview {
+            flex: 1;
+            padding: 20px;
+            background-color: #1e1e1e;
+            border-left: 1px solid #3e3e42;
+            overflow-y: auto;
+            display: none;
+            color: #cccccc;
+        }
+        
+        .preview h1, .preview h2, .preview h3 {
+            color: #ffffff;
+            margin: 16px 0 8px 0;
+        }
+        
+        .preview h1 { font-size: 2em; border-bottom: 1px solid #3e3e42; padding-bottom: 8px; }
+        .preview h2 { font-size: 1.5em; }
+        .preview h3 { font-size: 1.2em; }
+        
+        .preview p {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+        
+        .preview code {
+            background-color: #2d2d30;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        
+        .preview pre {
+            background-color: #2d2d30;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+        
+        .preview blockquote {
+            border-left: 4px solid #007acc;
+            padding-left: 12px;
+            margin: 8px 0;
+            color: #a0a0a0;
+        }
+        
+        .ai-panel {
+            width: 350px;
+            background-color: #252526;
+            border-left: 1px solid #3e3e42;
+            padding: 20px;
+        }
+        
+        .file-item {
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 3px;
+            margin-bottom: 1px;
+            transition: background-color 0.2s;
+            color: #cccccc;
+            display: flex;
+            align-items: center;
+            user-select: none;
+        }
+        
+        .file-item:hover {
+            background-color: #2a2d2e;
+        }
+        
+        .file-item.selected {
+            background-color: #094771;
+            color: white;
+        }
+        
+        .file-item.directory {
+            font-weight: bold;
+        }
+        
+        .file-item.markdown {
+            color: #4fc3f7;
+        }
+        
+        .file-item.selected.markdown {
+            color: white;
+        }
+        
+        .tree-indent {
+            width: 16px;
+            height: 16px;
+            display: inline-block;
+        }
+        
+        .expand-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 4px;
+            font-size: 10px;
+            transition: transform 0.2s ease;
+            cursor: pointer;
+            transform-origin: center;
+        }
+        
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .file-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .file-children {
+            margin-left: 16px;
+            display: none;
+        }
+        
+        .file-children.expanded {
+            display: block;
+        }
+        
+        .file-item.directory {
+            display: flex;
+            align-items: center;
+        }
+        
+        .file-item.directory > span:last-child {
+            cursor: pointer;
+        }
+        
+        .toolbar {
+            height: 40px;
+            background-color: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+        }
+        
+        .btn {
+            padding: 0 10px;
+            margin-right: 8px;
+            border: 1px solid #464647;
+            background-color: #3c3c3c;
+            color: #cccccc;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 12px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        
+        .btn:hover {
+            background-color: #464647;
+        }
+        
+        .btn.active {
+            background-color: #007acc;
+            color: white;
+            border-color: #007acc;
+        }
+        
+        .status-bar {
+            height: 25px;
+            background-color: #007acc;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 12px;
+        }
+        
+        .welcome-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #a0a0a0;
+            font-size: 16px;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .path-input {
+            flex: 1;
+            padding: 5px 8px;
+            margin-right: 8px;
+            border: 1px solid #464647;
+            border-radius: 3px;
+            background-color: #3c3c3c;
+            color: #cccccc;
+            height: 28px;
+            box-sizing: border-box;
+        }
+        
+        .path-input:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+        
+        .file-meta {
+            font-size: 11px;
+            color: #808080;
+            margin-top: 2px;
+        }
+        
+        .loading {
+            color: #a0a0a0;
+            font-style: italic;
+        }
+        
+        .error {
+            color: #f48771;
+            background-color: #5a1d1d;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px;
+            border: 1px solid #be1100;
+        }
+        
+        .ai-output {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #1e1e1e;
+            border-radius: 4px;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #3e3e42;
+            color: #cccccc;
+        }
+        
+        .ai-output h4 {
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+        
+        .feature-preview {
+            background-color: #2d2d30;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 3px solid #007acc;
+        }
+        
+        .feature-preview strong {
+            color: #ffffff;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .stat-item {
+            background-color: #2d2d30;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #a0a0a0;
+        }
+        
+        /* 设置模态框样式 */
+        .settings-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .settings-content {
+            background-color: #2d2d30;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            width: 500px;
+            max-width: 90%;
+            color: #cccccc;
+        }
+        
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #3e3e42;
+        }
+        
+        .settings-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: #cccccc;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+        
+        .close-btn:hover {
+            background-color: #464647;
+        }
+        
+        /* 选项卡样式 */
+        .settings-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #3e3e42;
+        }
+        
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 12px 20px;
+            color: #cccccc;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn:hover {
+            color: #ffffff;
+            background-color: #464647;
+        }
+        
+        .tab-btn.active {
+            color: #007acc;
+            border-bottom-color: #007acc;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* 备份管理样式 */
+        .backup-section h3 {
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+        
+        .backup-info {
+            color: #cccccc;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .backup-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .backup-list h4 {
+            color: #ffffff;
+            margin-bottom: 15px;
+        }
+        
+        .backup-item {
+            background-color: #3e3e42;
+            border: 1px solid #464647;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .backup-info-text {
+            color: #cccccc;
+        }
+        
+        .backup-time {
+            color: #888888;
+            font-size: 12px;
+        }
+        
+        .backup-actions-btn {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        /* Prompt模板样式 */
+        .prompt-section h3 {
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+        
+        .prompt-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .prompt-list h4 {
+            color: #ffffff;
+            margin-bottom: 15px;
+        }
+        
+        .prompt-item {
+            background-color: #3e3e42;
+            border: 1px solid #464647;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .prompt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .prompt-title {
+            color: #ffffff;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .prompt-category {
+            background-color: #007acc;
+            color: #ffffff;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .prompt-description {
+            color: #cccccc;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .prompt-content-preview {
+            background-color: #2d2d30;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            padding: 10px;
+            color: #cccccc;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            max-height: 100px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+        
+        .prompt-actions-btn {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding-top: 20px;
+            border-top: 1px solid #3e3e42;
+            margin-top: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            background-color: #3c3c3c;
+            color: #cccccc;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+        
+        .form-input[type="password"] {
+            font-family: monospace;
+        }
+        
+        .form-help {
+            font-size: 12px;
+            color: #a0a0a0;
+            margin-top: 4px;
+        }
+        
+        .settings-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #3e3e42;
+        }
+        
+        .btn-primary {
+            background-color: #007acc;
+            color: white;
+            border: 1px solid #007acc;
+        }
+        
+        .btn-primary:hover {
+            background-color: #005a9e;
+        }
+        
+        .btn-secondary {
+            background-color: #464647;
+            color: #cccccc;
+            border: 1px solid #464647;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #5a5a5a;
+        }
+        
+        /* 右侧面板Tab样式 */
+        .panel-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #3e3e42;
+        }
+        
+        .panel-tab {
+            flex: 1;
+            background: none;
+            border: none;
+            padding: 12px 8px;
+            color: #cccccc;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .panel-tab:hover {
+            color: #ffffff;
+            background-color: #3e3e42;
+        }
+        
+        .panel-tab.active {
+            color: #007acc;
+            border-bottom-color: #007acc;
+        }
+        
+        .panel-content {
+            display: none;
+        }
+        
+        .panel-content.active {
+            display: block;
+        }
+        
+        /* 番茄钟样式 */
+        .timer-display {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .timer-time {
+            font-size: 48px;
+            font-weight: bold;
+            color: #4fc3f7;
+            font-family: 'Monaco', 'Consolas', monospace;
+            margin-bottom: 10px;
+        }
+        
+        .timer-status {
+            font-size: 16px;
+            color: #cccccc;
+            margin-bottom: 20px;
+        }
+        
+        .timer-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .timer-settings {
+            background-color: #2d2d30;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .timer-presets {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .timer-preset {
+            background-color: #3e3e42;
+            border: 1px solid #464647;
+            color: #cccccc;
+            padding: 6px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+        
+        .timer-preset:hover {
+            background-color: #464647;
+        }
+        
+        .timer-preset.active {
+            background-color: #007acc;
+            color: white;
+        }
+        
+        .custom-time {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .time-input {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #464647;
+            border-radius: 3px;
+            background-color: #3c3c3c;
+            color: #cccccc;
+            text-align: center;
+        }
+        
+        .timer-stats {
+            background-color: #2d2d30;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .stat-label {
+            color: #a0a0a0;
+        }
+        
+        .stat-value {
+            color: #4fc3f7;
+            font-weight: bold;
+        }
+        
+        /* Floating Dock 样式 */
+        .floating-dock-container {
+            display: flex;
+            justify-content: center;
+            margin: 10px 0;
+            perspective: 1000px;
+        }
+        
+        .floating-dock {
+            display: flex;
+            gap: 10px;
+            background: rgba(46, 46, 46, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .dock-item {
+            position: relative;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            border-radius: 15px;
+        }
+        
+        .dock-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-5px);
+        }
+        
+        .dock-item:active {
+            transform: scale(0.95) translateY(-2px);
+        }
+        
+        .dock-icon {
+            font-size: 24px;
+            transition: all 0.3s ease;
+        }
+        
+        .dock-item:hover .dock-icon {
+            transform: scale(1.2);
+        }
+        
+        .dock-tooltip {
+            position: absolute;
+            top: -30px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.2s ease;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        
+        .dock-item:hover .dock-tooltip {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* 添加动画效果 */
+        @keyframes dock-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        
+        .floating-dock:hover {
+            transform: scale(1.05);
+        }
+        
+        .floating-dock:hover .dock-item:not(:hover) {
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="app-container">
+            <!-- 侧边栏 - 文件树 -->
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <span class="sidebar-title">文件浏览器</span>
+                    <button class="collapse-btn" onclick="toggleSidebar()" title="折叠/展开侧边栏">◀</button>
+                </div>
+                <div class="toolbar">
+                    <input type="text" class="path-input" id="pathInput" placeholder="输入文件夹路径...">
+                    <button class="btn" onclick="loadPath()">📁 加载</button>
+                    <button class="btn" onclick="refreshFileTree()">🔄 刷新</button>
+                </div>
+                <div class="file-tree" id="fileTree">
+                    <div class="welcome-message">
+                        🗂️ 请在上方输入文件夹路径<br>
+                        例如: C:\\Users\\YourName\\Documents
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 主内容区 - 编辑器 -->
+            <div class="main-content">
+                <div class="toolbar">
+                    <button class="btn" onclick="saveFile()" title="保存 (Ctrl+S)">💾 保存</button>
+                    <button class="btn" id="previewBtn" onclick="togglePreview()" title="预览 (Ctrl+P)">👁️ 预览</button>
+                    <button class="btn" onclick="toggleTheme()" title="切换主题">🌓 主题</button>
+                    <button class="btn" onclick="formatDocument()" title="格式化文档 (Alt+Shift+F)">✨ 格式化</button>
+                    <span id="currentFile" style="margin-left: 10px; color: #a0a0a0;">未选择文件</span>
+                </div>
+                <div class="editor-container">
+                    <div class="monaco-editor-wrapper" id="monacoContainer"></div>
+                    <div class="preview" id="preview"></div>
+                </div>
+            </div>
+            
+            <!-- AI面板 -->
+            <div class="ai-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>🔧 工具面板</h3>
+                    <button class="btn" onclick="openSettings()" title="设置">⚙️</button>
+                </div>
+                
+                <!-- Tab导航 -->
+                <div class="panel-tabs">
+                    <button class="panel-tab active" onclick="switchPanelTab('ai')">🤖 AI助手</button>
+                    <button class="panel-tab" onclick="switchPanelTab('timer')">🍅 番茄钟</button>
+                </div>
+                
+                <!-- AI助手Tab内容 -->
+                <div id="aiPanel" class="panel-content active">
+                    <!-- Prompt模板快速选择 -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #ffffff; font-size: 14px; margin-bottom: 8px; display: block;">🎯 快速模板</label>
+                        <select id="quickPromptSelect" class="form-input" style="margin-bottom: 8px;" onchange="applyQuickPrompt()">
+                            <option value="">选择Prompt模板...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- AI输入框 -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #ffffff; font-size: 14px; margin-bottom: 8px; display: block;">💬 AI对话</label>
+                        <textarea id="aiInput" class="form-input" rows="4" placeholder="输入您的问题或使用上方的Prompt模板..."></textarea>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 8px;" onclick="sendToAI()">🚀 发送</button>
+                    </div>
+                    
+                    <!-- 预设功能按钮 - Floating Dock UI -->
+                    <div style="border-top: 1px solid #3e3e42; padding-top: 15px; margin-bottom: 15px;">
+                        <label style="color: #ffffff; font-size: 14px; margin-bottom: 8px; display: block;">⚡ 快速功能</label>
+                        <div class="floating-dock-container">
+                            <div class="floating-dock">
+                                <button class="dock-item" onclick="generateDailyPlan()" title="生成每日规划">
+                                    <div class="dock-icon">📅</div>
+                                    <div class="dock-tooltip">生成每日规划</div>
+                                </button>
+                                <button class="dock-item" onclick="integrateThoughts()" title="整合思想碎片">
+                                    <div class="dock-icon">💡</div>
+                                    <div class="dock-tooltip">整合思想碎片</div>
+                                </button>
+                                <button class="dock-item" onclick="analyzeContent()" title="内容分析">
+                                    <div class="dock-icon">📊</div>
+                                    <div class="dock-tooltip">内容分析</div>
+                                </button>
+                                <button class="dock-item" onclick="generateSummary()" title="生成摘要">
+                                    <div class="dock-icon">📝</div>
+                                    <div class="dock-tooltip">生成摘要</div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="aiOutput" class="ai-output">
+                        <p style="color: #a0a0a0; text-align: center; margin-top: 50px;">🤖 AI助手已就绪<br><br>选择模板或输入问题开始对话</p>
+                    </div>
+                </div>
+                
+                <!-- 番茄钟Tab内容 -->
+                <div id="timerPanel" class="panel-content">
+                    <!-- 计时器显示 -->
+                    <div class="timer-display">
+                        <div class="timer-time" id="timerDisplay">25:00</div>
+                        <div class="timer-status" id="timerStatus">准备开始工作</div>
+                    </div>
+                    
+                    <!-- 控制按钮 -->
+                    <div class="timer-controls">
+                        <button class="btn btn-primary" id="startBtn" onclick="startTimer()">▶️ 开始</button>
+                        <button class="btn btn-secondary" id="pauseBtn" onclick="pauseTimer()" style="display: none;">⏸️ 暂停</button>
+                        <button class="btn btn-secondary" onclick="resetTimer()">🔄 重置</button>
+                    </div>
+                    
+                    <!-- 时间设置 -->
+                    <div class="timer-settings">
+                        <h4 style="color: #ffffff; margin-bottom: 10px;">⏰ 时间设置</h4>
+                        
+                        <!-- 预设时间 -->
+                        <div class="timer-presets">
+                            <button class="timer-preset active" onclick="setPresetTime(25)">25分钟</button>
+                            <button class="timer-preset" onclick="setPresetTime(15)">15分钟</button>
+                            <button class="timer-preset" onclick="setPresetTime(30)">30分钟</button>
+                            <button class="timer-preset" onclick="setPresetTime(45)">45分钟</button>
+                            <button class="timer-preset" onclick="setPresetTime(5)">休息5分</button>
+                        </div>
+                        
+                        <!-- 自定义时间 -->
+                        <div class="custom-time">
+                            <span style="color: #cccccc;">自定义:</span>
+                            <input type="number" id="customMinutes" class="time-input" min="1" max="120" value="25">
+                            <span style="color: #cccccc;">分钟</span>
+                            <button class="btn btn-small" onclick="setCustomTime()">设置</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 统计信息 -->
+                    <div class="timer-stats">
+                        <h4 style="color: #ffffff; margin-bottom: 10px;">📊 今日统计</h4>
+                        <div class="stat-row">
+                            <span class="stat-label">完成番茄钟:</span>
+                            <span class="stat-value" id="completedPomodoros">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">专注时间:</span>
+                            <span class="stat-value" id="focusTime">0分钟</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">休息时间:</span>
+                            <span class="stat-value" id="breakTime">0分钟</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-bar">
+            <span id="statusText">就绪 - AI知识库助手 v1.0 Enhanced</span>
+            <span style="margin-left: auto;" id="editorInfo">Monaco Editor</span>
+        </div>
+    </div>
+    
+    <!-- 设置模态框 -->
+    <div id="settingsModal" class="settings-modal">
+        <div class="settings-content">
+            <div class="settings-header">
+                <span class="settings-title">⚙️ 设置</span>
+                <button class="close-btn" onclick="closeSettings()">&times;</button>
+            </div>
+            
+            <!-- 选项卡导航 -->
+            <div class="settings-tabs">
+                <button class="tab-btn active" onclick="switchTab('basic')">基本设置</button>
+                <button class="tab-btn" onclick="switchTab('backup')">备份管理</button>
+                <button class="tab-btn" onclick="switchTab('prompt')">Prompt模板</button>
+            </div>
+            
+            <!-- 基本设置选项卡 -->
+            <div id="basicTab" class="tab-content active">
+                <form id="settingsForm">
+                <div class="form-group">
+                    <label class="form-label" for="knowledgeBasePath">知识库路径</label>
+                    <input type="text" id="knowledgeBasePath" class="form-input" placeholder="例如: D:\\Documents\\MyNotes">
+                    <div class="form-help">设置您的知识库根目录路径，AI将基于此路径分析您的笔记</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="openrouterApiKey">OpenRouter API Key</label>
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <input type="password" id="openrouterApiKey" class="form-input" placeholder="sk-or-v1-..." style="flex: 1;">
+                        <button type="button" id="validateApiKey" class="btn btn-small" onclick="validateApiKey()" style="white-space: nowrap;">🔍 校验</button>
+                        <button type="button" id="testNotification" class="btn btn-small" onclick="showNotification('测试通知', 'info')" style="white-space: nowrap;">测试</button>
+                    </div>
+                    <div class="form-help">您的OpenRouter API密钥，用于访问AI模型。<a href="https://openrouter.ai/keys" target="_blank" style="color: #007acc;">获取API Key</a></div>
+                    <div id="apiValidationResult" style="margin-top: 8px; font-size: 12px;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="aiModel">AI 模型</label>
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <select id="aiModel" class="form-input" style="flex: 1;">
+                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (推荐)</option>
+                            <option value="openai/gpt-4o">GPT-4o</option>
+                            <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                            <option value="google/gemini-pro-1.5">Gemini Pro 1.5</option>
+                        </select>
+                        <button type="button" id="refreshModels" class="btn btn-small" onclick="refreshModelList()" style="white-space: nowrap;">🔄 刷新</button>
+                    </div>
+                    <div class="form-help">选择要使用的AI模型。点击刷新按钮获取最新的可用模型列表。</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="autoBackup">自动备份</label>
+                    <select id="autoBackup" class="form-input">
+                        <option value="true">启用</option>
+                        <option value="false">禁用</option>
+                    </select>
+                    <div class="form-help">自动备份您的设置和重要数据</div>
+                </div>
+                </form>
+                
+                <div class="settings-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeSettings()">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+                </div>
+            </div>
+            
+            <!-- 备份管理选项卡 -->
+            <div id="backupTab" class="tab-content">
+                <div class="backup-section">
+                    <h3>📦 数据备份</h3>
+                    <p class="backup-info">系统会自动备份您的设置，您也可以手动创建备份或恢复历史备份。</p>
+                    
+                    <div class="backup-actions">
+                        <button type="button" class="btn btn-primary" onclick="createManualBackup()">🔄 创建备份</button>
+                        <button type="button" class="btn btn-secondary" onclick="refreshBackupList()">📋 刷新列表</button>
+                    </div>
+                    
+                    <div class="backup-list">
+                        <h4>备份历史</h4>
+                        <div id="backupListContainer">
+                            <div class="loading">正在加载备份列表...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Prompt模板选项卡 -->
+            <div id="promptTab" class="tab-content">
+                <div class="prompt-section">
+                    <h3>🎯 Prompt 模板管理</h3>
+                    <p class="backup-info">自定义AI交互的Prompt模板，提高AI响应的准确性和一致性。</p>
+                    
+                    <div class="prompt-actions">
+                        <button type="button" class="btn btn-primary" onclick="addPromptTemplate()">➕ 添加模板</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetDefaultTemplates()">🔄 重置默认</button>
+                    </div>
+                    
+                    <div class="prompt-list">
+                        <h4>模板列表</h4>
+                        <div id="promptTemplateList">
+                            <div class="loading">正在加载模板列表...</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 编辑模板模态框 -->
+                    <div id="promptEditModal" class="modal" style="display: none;">
+                        <div class="modal-content" style="max-width: 800px;">
+                            <div class="settings-header">
+                                <h3 class="settings-title">编辑 Prompt 模板</h3>
+                                <button class="close-btn" onclick="closePromptEditModal()">&times;</button>
+                            </div>
+                            
+                            <form id="promptEditForm">
+                                <div class="form-group">
+                                    <label class="form-label" for="promptName">模板名称</label>
+                                    <input type="text" id="promptName" class="form-input" placeholder="例如：总结文档">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="promptDescription">模板描述</label>
+                                    <input type="text" id="promptDescription" class="form-input" placeholder="简要描述此模板的用途">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="promptContent">Prompt 内容</label>
+                                    <textarea id="promptContent" class="form-input" rows="8" placeholder="请输入Prompt模板内容...\n\n可以使用变量：\n{content} - 当前文档内容\n{filename} - 文件名\n{selection} - 选中的文本"></textarea>
+                                    <div class="form-help">支持变量替换：{content}、{filename}、{selection}</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="promptCategory">分类</label>
+                                    <select id="promptCategory" class="form-input">
+                                        <option value="summary">总结</option>
+                                        <option value="analysis">分析</option>
+                                        <option value="planning">规划</option>
+                                        <option value="writing">写作</option>
+                                        <option value="custom">自定义</option>
+                                    </select>
+                                </div>
+                            </form>
+                            
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" onclick="closePromptEditModal()">取消</button>
+                                <button type="button" class="btn btn-primary" onclick="savePromptTemplate()">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monaco Editor -->
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    
+    <script>
+        // 全局函数：校验API密钥
+        async function validateApiKey() {
+            console.log('validateApiKey function called');
+            const apiKeyInput = document.getElementById('openrouterApiKey');
+            const resultDiv = document.getElementById('apiValidationResult');
+            const validateBtn = document.getElementById('validateApiKey');
+            
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                resultDiv.innerHTML = '<span style="color: #f48771;">❌ 请输入API密钥</span>';
+                showNotification('请输入API密钥', 'warning');
+                return;
+            }
+            
+            // 显示加载状态
+            validateBtn.disabled = true;
+            validateBtn.innerHTML = '<span class="loading-spinner">●</span> 校验中...';
+            resultDiv.innerHTML = '<span style="color: #007acc;">🔄 正在校验API密钥...</span>';
+            
+            try {
+                // 调用OpenRouter API获取模型列表来验证密钥
+                const response = await fetch('https://openrouter.ai/api/v1/models', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<span style="color: #4ec9b0;">✅ API密钥有效！可访问 ${data.data ? data.data.length : 0} 个模型</span>`;
+                    updateStatus('API密钥校验成功', 'success');
+                    showNotification('API密钥校验成功！已自动刷新模型列表', 'success');
+                    
+                    // 自动刷新模型列表
+                    setTimeout(() => {
+                        refreshModelList();
+                    }, 500);
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMsg = errorData.error?.message || response.statusText;
+                    resultDiv.innerHTML = `<span style="color: #f48771;">❌ API密钥无效: ${errorMsg}</span>`;
+                    updateStatus('API密钥校验失败', 'error');
+                    showNotification(`API密钥无效: ${errorMsg}`, 'error');
+                }
+            } catch (error) {
+                console.error('API密钥校验失败:', error);
+                const errorMsg = error.message || '网络连接失败';
+                resultDiv.innerHTML = `<span style="color: #f48771;">❌ 校验失败: ${errorMsg}</span>`;
+                updateStatus('API密钥校验失败: ' + errorMsg, 'error');
+                showNotification(`校验失败: ${errorMsg}，请检查网络连接后重试`, 'error');
+            } finally {
+                // 恢复按钮状态
+                validateBtn.disabled = false;
+                validateBtn.innerHTML = '🔍 校验';
+            }
+        }
+        
+        let currentFilePath = null;
+        let currentFolderPath = null;
+        let isPreviewMode = false;
+        let isDarkTheme = true;
+        let monacoEditor = null;
+        
+        // 初始化Monaco Editor
+        function initMonacoEditor() {
+            require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+            
+            require(['vs/editor/editor.main'], function () {
+                monacoEditor = monaco.editor.create(document.getElementById('monacoContainer'), {
+                    value: '# 欢迎使用 AI 知识库助手\n\n请选择一个Markdown文件开始编辑...\n\n## 快捷键\n- **Ctrl+S**: 保存文件\n- **Ctrl+P**: 切换预览模式\n- **Alt+Shift+F**: 格式化文档\n- **Ctrl+F**: 查找\n- **Ctrl+H**: 查找替换\n\n## 功能特性\n- 🎨 Monaco Editor 代码编辑器\n- 👁️ 实时Markdown预览\n- 🗂️ 文件树浏览\n- 🤖 AI智能助手（即将上线）',
+                    language: 'markdown',
+                    theme: isDarkTheme ? 'vs-dark' : 'vs',
+                    automaticLayout: true,
+                    wordWrap: 'on',
+                    minimap: { enabled: true },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    renderWhitespace: 'selection',
+                    scrollBeyondLastLine: false,
+                    folding: true,
+                    links: true,
+                    colorDecorators: true
+                });
+                
+                // 监听内容变化
+                monacoEditor.onDidChangeModelContent(() => {
+                    if (isPreviewMode && currentFilePath && currentFilePath.endsWith('.md')) {
+                        updatePreview();
+                    }
+                    updateEditorInfo();
+                });
+                
+                // 添加自定义快捷键
+                monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveFile);
+                monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP, togglePreview);
+                monacoEditor.addCommand(monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, formatDocument);
+                
+                updateStatus('Monaco Editor 已加载完成');
+                updateEditorInfo();
+            });
+        }
+        
+        // 加载指定路径
+        async function loadPath() {
+            const pathInput = document.getElementById('pathInput');
+            const path = pathInput.value.trim();
+            
+            if (!path) {
+                updateStatus('请输入文件夹路径');
+                return;
+            }
+            
+            currentFolderPath = path;
+            await loadFileTree(path);
+        }
+        
+        // 文件树数据结构
+        let fileTreeData = {};
+        let expandedFolders = new Set();
+        
+        // 加载文件树
+        async function loadFileTree(folderPath) {
+            const fileTreeElement = document.getElementById('fileTree');
+            fileTreeElement.innerHTML = '<div class="loading">🔄 正在加载文件树...</div>';
+            
+            try {
+                const response = await fetch(`/api/read-directory?path=${encodeURIComponent(folderPath)}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '加载失败');
+                }
+                
+                // 构建树形数据结构
+                fileTreeData = {
+                    name: folderPath.split(/[\\/]/).pop() || folderPath,
+                    path: folderPath,
+                    isDirectory: true,
+                    children: data.sort((a, b) => {
+                        if (a.isDirectory && !b.isDirectory) return -1;
+                        if (!a.isDirectory && b.isDirectory) return 1;
+                        return a.name.localeCompare(b.name);
+                    })
+                };
+                
+                expandedFolders.add(folderPath);
+                renderFileTree();
+                
+                updateStatus(`✅ 已加载文件夹: ${folderPath} (${data.length} 项)`);
+                
+            } catch (error) {
+                console.error('加载文件树失败:', error);
+                fileTreeElement.innerHTML = `<div class="error">❌ 加载失败: ${error.message}</div>`;
+                updateStatus('❌ 加载文件树失败');
+            }
+        }
+        
+        // 渲染文件树
+        function renderFileTree() {
+            const fileTreeElement = document.getElementById('fileTree');
+            fileTreeElement.innerHTML = '';
+            
+            if (fileTreeData.children) {
+                renderTreeNode(fileTreeData, fileTreeElement, 0);
+            }
+        }
+        
+        // 渲染树节点
+        function renderTreeNode(node, container, depth) {
+            if (node.children) {
+                // 渲染文件夹
+                node.children.forEach(child => {
+                    // 过滤以点开头的文件和文件夹
+                    if (child.name.startsWith('.')) {
+                        return;
+                    }
+                    const itemContainer = document.createElement('div');
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    
+                    // 缩进
+                    for (let i = 0; i < depth; i++) {
+                        const indent = document.createElement('span');
+                        indent.className = 'tree-indent';
+                        fileItem.appendChild(indent);
+                    }
+                    
+                    if (child.isDirectory) {
+                        // 文件夹
+                        fileItem.className += ' directory';
+                        
+                        const expandIcon = document.createElement('span');
+                        expandIcon.className = 'expand-icon';
+                        expandIcon.innerHTML = '▶';
+                        
+                        const isExpanded = expandedFolders.has(child.path);
+                        if (isExpanded) {
+                            expandIcon.classList.add('expanded');
+                        }
+                        
+                        expandIcon.onclick = (e) => {
+                            e.stopPropagation();
+                            toggleFolder(child.path);
+                        };
+                        
+                        // 设置展开图标的数据属性，用于后续更新
+                        expandIcon.setAttribute('data-path', child.path);
+                        
+                        fileItem.appendChild(expandIcon);
+                        
+                        const nameSpan = document.createElement('span');
+                        nameSpan.innerHTML = `📁 ${child.name}`;
+                        nameSpan.onclick = () => {
+                            document.getElementById('pathInput').value = child.path;
+                            loadFileTree(child.path);
+                        };
+                        fileItem.appendChild(nameSpan);
+                        
+                        itemContainer.appendChild(fileItem);
+                        
+                        // 子文件夹容器
+                        if (isExpanded && child.children) {
+                            const childrenContainer = document.createElement('div');
+                            childrenContainer.className = 'file-children expanded';
+                            renderTreeNode(child, childrenContainer, depth + 1);
+                            itemContainer.appendChild(childrenContainer);
+                        }
+                        
+                    } else {
+                        // 文件
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'file-content';
+                        
+                        if (child.name.endsWith('.md')) {
+                            fileItem.className += ' markdown';
+                            const modifiedDate = new Date(child.modified).toLocaleDateString('zh-CN');
+                            const modifiedTime = new Date(child.modified).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                            nameSpan.innerHTML = `
+                                📄 ${child.name}
+                                <div class="file-meta">${modifiedDate} ${modifiedTime}</div>
+                            `;
+                        } else {
+                            const ext = child.name.split('.').pop().toLowerCase();
+                            const icon = getFileIcon(ext);
+                            nameSpan.innerHTML = `${icon} ${child.name}`;
+                        }
+                        
+                        fileItem.appendChild(nameSpan);
+                        fileItem.onclick = () => openFile(child.path, fileItem);
+                        itemContainer.appendChild(fileItem);
+                    }
+                    
+                    container.appendChild(itemContainer);
+                });
+            }
+        }
+        
+        // 切换文件夹展开状态
+        async function toggleFolder(folderPath) {
+            if (expandedFolders.has(folderPath)) {
+                expandedFolders.delete(folderPath);
+            } else {
+                expandedFolders.add(folderPath);
+                
+                // 如果文件夹还没有加载子项，则加载
+                const folderNode = findNodeByPath(fileTreeData, folderPath);
+                if (folderNode && !folderNode.children) {
+                    try {
+                        const response = await fetch(`/api/read-directory?path=${encodeURIComponent(folderPath)}`);
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            folderNode.children = data.sort((a, b) => {
+                                if (a.isDirectory && !b.isDirectory) return -1;
+                                if (!a.isDirectory && b.isDirectory) return 1;
+                                return a.name.localeCompare(b.name);
+                            });
+                        }
+                    } catch (error) {
+                        console.error('加载子文件夹失败:', error);
+                    }
+                }
+            }
+            
+            // 更新展开图标状态
+            updateExpandIcons();
+            renderFileTree();
+        }
+        
+        // 更新所有展开图标的状态
+        function updateExpandIcons() {
+            const expandIcons = document.querySelectorAll('.expand-icon[data-path]');
+            expandIcons.forEach(icon => {
+                const path = icon.getAttribute('data-path');
+                if (expandedFolders.has(path)) {
+                    icon.classList.add('expanded');
+                } else {
+                    icon.classList.remove('expanded');
+                }
+            });
+        }
+        
+        // 根据路径查找节点
+        function findNodeByPath(node, targetPath) {
+            if (node.path === targetPath) {
+                return node;
+            }
+            
+            if (node.children) {
+                for (const child of node.children) {
+                    const found = findNodeByPath(child, targetPath);
+                    if (found) return found;
+                }
+            }
+            
+            return null;
+        }
+        
+        // 切换侧边栏折叠状态
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const collapseBtn = sidebar.querySelector('.collapse-btn');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                sidebar.classList.remove('collapsed');
+                collapseBtn.innerHTML = '◀';
+                collapseBtn.title = '折叠侧边栏';
+            } else {
+                sidebar.classList.add('collapsed');
+                collapseBtn.innerHTML = '▶';
+                collapseBtn.title = '展开侧边栏';
+            }
+        }
+        
+        // 获取文件图标
+        function getFileIcon(ext) {
+            const icons = {
+                'md': '📄', 'txt': '📄', 'doc': '📄', 'docx': '📄',
+                'js': '📜', 'ts': '📜', 'html': '🌐', 'css': '🎨',
+                'json': '⚙️', 'xml': '⚙️', 'yml': '⚙️', 'yaml': '⚙️',
+                'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️',
+                'pdf': '📕', 'zip': '📦', 'rar': '📦'
+            };
+            return icons[ext] || '📄';
+        }
+        
+        // 打开文件
+        async function openFile(filePath, element) {
+            try {
+                updateStatus('🔄 正在打开文件...');
+                
+                const response = await fetch(`/api/read-file?path=${encodeURIComponent(filePath)}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '打开文件失败');
+                }
+                
+                if (monacoEditor) {
+                    monacoEditor.setValue(data.content);
+                    
+                    // 设置语言模式
+                    const ext = filePath.split('.').pop().toLowerCase();
+                    const language = getLanguageByExtension(ext);
+                    monaco.editor.setModelLanguage(monacoEditor.getModel(), language);
+                }
+                
+                currentFilePath = filePath;
+                
+                // 更新当前文件显示
+                const fileName = filePath.split(/[\\/]/).pop();
+                document.getElementById('currentFile').textContent = fileName;
+                
+                // 高亮选中的文件
+                document.querySelectorAll('.file-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                if (element) {
+                    element.classList.add('selected');
+                }
+                
+                // 如果是预览模式，更新预览
+                if (isPreviewMode && filePath.endsWith('.md')) {
+                    updatePreview();
+                }
+                
+                updateStatus(`✅ 已打开: ${fileName}`);
+                updateEditorInfo();
+            } catch (error) {
+                console.error('打开文件失败:', error);
+                updateStatus(`❌ 打开文件失败: ${error.message}`);
+            }
+        }
+        
+        // 根据文件扩展名获取语言
+        function getLanguageByExtension(ext) {
+            const languages = {
+                'md': 'markdown', 'txt': 'plaintext',
+                'js': 'javascript', 'ts': 'typescript',
+                'html': 'html', 'css': 'css',
+                'json': 'json', 'xml': 'xml',
+                'py': 'python', 'java': 'java',
+                'cpp': 'cpp', 'c': 'c',
+                'cs': 'csharp', 'php': 'php',
+                'rb': 'ruby', 'go': 'go',
+                'rs': 'rust', 'swift': 'swift'
+            };
+            return languages[ext] || 'plaintext';
+        }
+        
+        // 保存文件
+        async function saveFile() {
+            if (!currentFilePath) {
+                updateStatus('⚠️ 请先选择一个文件');
+                return;
+            }
+            
+            try {
+                updateStatus('💾 正在保存文件...');
+                
+                const content = monacoEditor ? monacoEditor.getValue() : '';
+                const response = await fetch('/api/write-file', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        path: currentFilePath,
+                        content: content
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '保存失败');
+                }
+                
+                updateStatus('✅ 文件已保存');
+                
+                // 如果是预览模式，更新预览
+                if (isPreviewMode && currentFilePath.endsWith('.md')) {
+                    updatePreview();
+                }
+                
+            } catch (error) {
+                console.error('保存文件失败:', error);
+                updateStatus(`❌ 保存失败: ${error.message}`);
+            }
+        }
+        
+        // 切换预览模式
+        function togglePreview() {
+            const monacoContainer = document.getElementById('monacoContainer');
+            const preview = document.getElementById('preview');
+            const previewBtn = document.getElementById('previewBtn');
+            
+            isPreviewMode = !isPreviewMode;
+            
+            if (isPreviewMode) {
+                monacoContainer.style.flex = '1';
+                preview.style.display = 'block';
+                previewBtn.classList.add('active');
+                previewBtn.innerHTML = '📝 编辑';
+                
+                if (currentFilePath && currentFilePath.endsWith('.md')) {
+                    updatePreview();
+                } else {
+                    preview.innerHTML = '<p style="color: #a0a0a0; text-align: center; margin-top: 50px;">📄 请选择Markdown文件以查看预览</p>';
+                }
+                
+                updateStatus('👁️ 已切换到预览模式');
+            } else {
+                preview.style.display = 'none';
+                previewBtn.classList.remove('active');
+                previewBtn.innerHTML = '👁️ 预览';
+                updateStatus('📝 已切换到编辑模式');
+            }
+        }
+        
+        // 切换主题
+        function toggleTheme() {
+            isDarkTheme = !isDarkTheme;
+            if (monacoEditor) {
+                monaco.editor.setTheme(isDarkTheme ? 'vs-dark' : 'vs');
+            }
+            
+            // 切换页面主题
+            document.body.style.backgroundColor = isDarkTheme ? '#1e1e1e' : '#ffffff';
+            document.body.style.color = isDarkTheme ? '#cccccc' : '#333333';
+            
+            updateStatus(`🌓 已切换到${isDarkTheme ? '深色' : '浅色'}主题`);
+        }
+        
+        // 格式化文档
+        function formatDocument() {
+            if (monacoEditor) {
+                monacoEditor.getAction('editor.action.formatDocument').run();
+                updateStatus('✨ 文档已格式化');
+            }
+        }
+        
+        // 更新Markdown预览
+        function updatePreview() {
+            if (!monacoEditor) return;
+            
+            const content = monacoEditor.getValue();
+            const preview = document.getElementById('preview');
+            
+            // 增强的Markdown渲染
+            let html = content
+                // 代码块
+                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+                // 标题
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                // 粗体和斜体
+                .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+                // 行内代码
+                .replace(/`(.*?)`/gim, '<code>$1</code>')
+                // 引用
+                .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
+                // 列表
+                .replace(/^- (.*$)/gim, '<li>$1</li>')
+                .replace(/^\* (.*$)/gim, '<li>$1</li>')
+                // 链接
+                .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+                // 换行
+                .replace(/\n/gim, '<br>');
+            
+            // 包装列表项
+            html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+            
+            preview.innerHTML = html || '<p style="color: #a0a0a0;">📄 预览内容将在这里显示...</p>';
+        }
+        
+        // 刷新文件树
+        function refreshFileTree() {
+            if (currentFolderPath) {
+                loadFileTree(currentFolderPath);
+            } else {
+                updateStatus('⚠️ 请先选择文件夹');
+            }
+        }
+        
+        // 更新编辑器信息
+        function updateEditorInfo() {
+            if (!monacoEditor) return;
+            
+            const model = monacoEditor.getModel();
+            const position = monacoEditor.getPosition();
+            const lineCount = model.getLineCount();
+            const language = model.getLanguageId();
+            
+            document.getElementById('editorInfo').textContent = 
+                `${language.toUpperCase()} | 行 ${position.lineNumber}, 列 ${position.column} | 共 ${lineCount} 行`;
+        }
+        
+        // AI功能（演示）
+        // 生成每日规划
+        async function generateDailyPlan() {
+            const aiOutput = document.getElementById('aiOutput');
+            
+            try {
+                // 检查设置
+                const settings = getCurrentSettings();
+                if (!settings.openrouterApiKey) {
+                    aiOutput.innerHTML = `
+                        <h4>⚠️ 配置提醒</h4>
+                        <p style="color: #f48771;">请先在设置中配置OpenRouter API Key</p>
+                        <button class="btn btn-primary" onclick="openSettings()" style="margin-top: 10px;">打开设置</button>
+                    `;
+                    return;
+                }
+                
+                // 显示加载状态
+                aiOutput.innerHTML = `
+                    <h4>📅 正在生成每日规划...</h4>
+                    <div style="display: flex; align-items: center; margin: 20px 0;">
+                        <div style="width: 20px; height: 20px; border: 2px solid #007acc; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 10px;"></div>
+                        <span>AI正在分析您的知识库...</span>
+                    </div>
+                `;
+                
+                updateStatus('🤖 正在生成每日规划...');
+                
+                // 构建上下文
+                const context = {
+                    knowledgeBasePath: settings.knowledgeBasePath,
+                    currentFile: currentFilePath,
+                    additionalContext: currentFilePath ? `当前正在编辑: ${currentFilePath}` : ''
+                };
+                
+                // 调用API
+                const response = await aiApiService.generateDailyPlan(context);
+                const content = response.choices[0].message.content;
+                
+                // 显示结果
+                aiOutput.innerHTML = `
+                    <h4>📅 今日规划</h4>
+                    <div style="background-color: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #3e3e42; margin: 10px 0;">
+                        ${markdownToHtml(content)}
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="insertPlanToNote()" style="margin-right: 10px;">插入到今日笔记</button>
+                        <button class="btn btn-secondary" onclick="generateDailyPlan()">重新生成</button>
+                    </div>
+                `;
+                
+                updateStatus('✅ 每日规划生成完成');
+                
+            } catch (error) {
+                console.error('生成每日规划失败:', error);
+                aiOutput.innerHTML = `
+                    <h4>❌ 生成失败</h4>
+                    <p style="color: #f48771;">错误信息: ${error.message}</p>
+                    <button class="btn btn-secondary" onclick="generateDailyPlan()" style="margin-top: 10px;">重试</button>
+                `;
+                updateStatus('❌ 每日规划生成失败');
+            }
+        }
+        
+        // 整合思想碎片
+        async function integrateThoughts() {
+            const aiOutput = document.getElementById('aiOutput');
+            
+            try {
+                // 检查设置
+                const settings = getCurrentSettings();
+                if (!settings.openrouterApiKey) {
+                    aiOutput.innerHTML = `
+                        <h4>⚠️ 配置提醒</h4>
+                        <p style="color: #f48771;">请先在设置中配置OpenRouter API Key</p>
+                        <button class="btn btn-primary" onclick="openSettings()" style="margin-top: 10px;">打开设置</button>
+                    `;
+                    return;
+                }
+                
+                // 显示加载状态
+                aiOutput.innerHTML = `
+                    <h4>💡 正在整合思想碎片...</h4>
+                    <div style="display: flex; align-items: center; margin: 20px 0;">
+                        <div style="width: 20px; height: 20px; border: 2px solid #007acc; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 10px;"></div>
+                        <span>AI正在分析思想碎片...</span>
+                    </div>
+                `;
+                
+                updateStatus('🤖 正在整合思想碎片...');
+                
+                // 尝试读取Quick Capture.md
+                let fragments = '';
+                const quickCapturePath = settings.knowledgeBasePath ? `${settings.knowledgeBasePath}/Quick Capture.md` : null;
+                
+                if (quickCapturePath) {
+                    try {
+                        const response = await fetch('/api/read-file', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ filePath: quickCapturePath })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            fragments = data.content;
+                        }
+                    } catch (error) {
+                        console.log('无法读取Quick Capture.md，使用当前文档内容');
+                    }
+                }
+                
+                // 如果没有找到Quick Capture.md，使用当前编辑器内容
+                if (!fragments && monacoEditor) {
+                    fragments = monacoEditor.getValue();
+                }
+                
+                if (!fragments.trim()) {
+                    aiOutput.innerHTML = `
+                        <h4>⚠️ 没有找到内容</h4>
+                        <p style="color: #f48771;">请确保Quick Capture.md文件存在，或在编辑器中打开一些内容</p>
+                    `;
+                    return;
+                }
+                
+                // 调用API
+                const response = await aiApiService.integrateThoughts(fragments);
+                const content = response.choices[0].message.content;
+                
+                // 显示结果
+                aiOutput.innerHTML = `
+                    <h4>💡 思想整合分析</h4>
+                    <div style="background-color: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #3e3e42; margin: 10px 0;">
+                        ${markdownToHtml(content)}
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="appendToCurrentNote()" style="margin-right: 10px;">追加到当前笔记</button>
+                        <button class="btn btn-secondary" onclick="integrateThoughts()">重新分析</button>
+                    </div>
+                `;
+                
+                updateStatus('✅ 思想整合完成');
+                
+            } catch (error) {
+                console.error('思想整合失败:', error);
+                aiOutput.innerHTML = `
+                    <h4>❌ 整合失败</h4>
+                    <p style="color: #f48771;">错误信息: ${error.message}</p>
+                    <button class="btn btn-secondary" onclick="integrateThoughts()" style="margin-top: 10px;">重试</button>
+                `;
+                updateStatus('❌ 思想整合失败');
+            }
+        }
+        
+        // 内容分析
+        async function analyzeContent() {
+            const aiOutput = document.getElementById('aiOutput');
+            
+            try {
+                // 检查设置
+                const settings = getCurrentSettings();
+                if (!settings.openrouterApiKey) {
+                    aiOutput.innerHTML = `
+                        <h4>⚠️ 配置提醒</h4>
+                        <p style="color: #f48771;">请先在设置中配置OpenRouter API Key</p>
+                        <button class="btn btn-primary" onclick="openSettings()" style="margin-top: 10px;">打开设置</button>
+                    `;
+                    return;
+                }
+                
+                // 获取当前内容
+                if (!monacoEditor || !monacoEditor.getValue().trim()) {
+                    aiOutput.innerHTML = `
+                        <h4>⚠️ 没有内容</h4>
+                        <p style="color: #f48771;">请先在编辑器中打开或输入一些内容</p>
+                    `;
+                    return;
+                }
+                
+                const content = monacoEditor.getValue();
+                
+                // 显示加载状态
+                aiOutput.innerHTML = `
+                    <h4>📊 正在分析内容...</h4>
+                    <div style="display: flex; align-items: center; margin: 20px 0;">
+                        <div style="width: 20px; height: 20px; border: 2px solid #007acc; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 10px;"></div>
+                        <span>AI正在深度分析内容...</span>
+                    </div>
+                `;
+                
+                updateStatus('🤖 正在分析内容...');
+                
+                // 调用API
+                const response = await aiApiService.analyzeContent(content);
+                const analysisResult = response.choices[0].message.content;
+                
+                // 显示结果
+                aiOutput.innerHTML = `
+                    <h4>📊 内容分析报告</h4>
+                    <div style="background-color: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #3e3e42; margin: 10px 0;">
+                        ${markdownToHtml(analysisResult)}
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="generateSummary()" style="margin-right: 10px;">生成摘要</button>
+                        <button class="btn btn-secondary" onclick="analyzeContent()">重新分析</button>
+                    </div>
+                `;
+                
+                updateStatus('✅ 内容分析完成');
+                
+            } catch (error) {
+                console.error('内容分析失败:', error);
+                aiOutput.innerHTML = `
+                    <h4>❌ 分析失败</h4>
+                    <p style="color: #f48771;">错误信息: ${error.message}</p>
+                    <button class="btn btn-secondary" onclick="analyzeContent()" style="margin-top: 10px;">重试</button>
+                `;
+                updateStatus('❌ 内容分析失败');
+            }
+        }
+        
+        // 生成摘要
+        async function generateSummary() {
+            const aiOutput = document.getElementById('aiOutput');
+            
+            try {
+                // 检查设置
+                const settings = getCurrentSettings();
+                if (!settings.openrouterApiKey) {
+                    aiOutput.innerHTML = `
+                        <h4>⚠️ 配置提醒</h4>
+                        <p style="color: #f48771;">请先在设置中配置OpenRouter API Key</p>
+                        <button class="btn btn-primary" onclick="openSettings()" style="margin-top: 10px;">打开设置</button>
+                    `;
+                    return;
+                }
+                
+                // 获取当前内容
+                if (!monacoEditor || !monacoEditor.getValue().trim()) {
+                    aiOutput.innerHTML = `
+                        <h4>⚠️ 没有内容</h4>
+                        <p style="color: #f48771;">请先在编辑器中打开或输入一些内容</p>
+                    `;
+                    return;
+                }
+                
+                const content = monacoEditor.getValue();
+                
+                // 显示加载状态
+                aiOutput.innerHTML = `
+                    <h4>📝 正在生成摘要...</h4>
+                    <div style="display: flex; align-items: center; margin: 20px 0;">
+                        <div style="width: 20px; height: 20px; border: 2px solid #007acc; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 10px;"></div>
+                        <span>AI正在提取关键信息...</span>
+                    </div>
+                `;
+                
+                updateStatus('🤖 正在生成摘要...');
+                
+                // 调用API
+                const response = await aiApiService.analyzeContent(content, 'summary');
+                const summary = response.choices[0].message.content;
+                
+                // 显示结果
+                aiOutput.innerHTML = `
+                    <h4>📝 智能摘要</h4>
+                    <div style="background-color: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #3e3e42; margin: 10px 0;">
+                        ${markdownToHtml(summary)}
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="insertSummaryToNote()" style="margin-right: 10px;">插入摘要</button>
+                        <button class="btn btn-secondary" onclick="generateSummary()">重新生成</button>
+                    </div>
+                `;
+                
+                updateStatus('✅ 摘要生成完成');
+                
+            } catch (error) {
+                console.error('生成摘要失败:', error);
+                aiOutput.innerHTML = `
+                    <h4>❌ 生成失败</h4>
+                    <p style="color: #f48771;">错误信息: ${error.message}</p>
+                    <button class="btn btn-secondary" onclick="generateSummary()" style="margin-top: 10px;">重试</button>
+                `;
+                updateStatus('❌ 摘要生成失败');
+            }
+        }
+        
+        // ========== 辅助函数 ==========
+        
+        // 简单的Markdown转HTML函数
+        function markdownToHtml(markdown) {
+            return markdown
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code style="background-color: #2d2d30; padding: 2px 4px; border-radius: 3px;">$1</code>')
+                .replace(/^### (.*$)/gim, '<h3 style="color: #4fc3f7; margin: 15px 0 10px 0;">$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 style="color: #4fc3f7; margin: 15px 0 10px 0;">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 style="color: #4fc3f7; margin: 15px 0 10px 0;">$1</h1>')
+                .replace(/^- (.*$)/gim, '<li style="margin: 5px 0;">$1</li>')
+                .replace(/\n/g, '<br>');
+        }
+        
+        // 插入规划到今日笔记
+        async function insertPlanToNote() {
+            try {
+                const settings = getCurrentSettings();
+                if (!settings.knowledgeBasePath) {
+                    alert('请先在设置中配置知识库路径');
+                    return;
+                }
+                
+                const today = new Date().toISOString().split('T')[0];
+                const todayNotePath = `${settings.knowledgeBasePath}/Daily Notes/${today}.md`;
+                
+                // 获取AI输出的内容
+                const aiOutput = document.getElementById('aiOutput');
+                const planContent = aiOutput.querySelector('div[style*="background-color: #1e1e1e"]');
+                if (!planContent) {
+                    alert('没有找到规划内容');
+                    return;
+                }
+                
+                const planText = planContent.textContent;
+                const insertContent = `\n\n## 📅 AI生成的今日规划\n\n${planText}\n`;
+                
+                // 尝试追加到今日笔记
+                const response = await fetch('/api/append-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        path: todayNotePath, 
+                        content: insertContent 
+                    })
+                });
+                
+                if (response.ok) {
+                    updateStatus('✅ 规划已插入到今日笔记');
+                    alert('规划已成功插入到今日笔记！');
+                } else {
+                    throw new Error('插入失败');
+                }
+                
+            } catch (error) {
+                console.error('插入规划失败:', error);
+                alert('插入规划失败: ' + error.message);
+            }
+        }
+        
+        // 追加到当前笔记
+        async function appendToCurrentNote() {
+            try {
+                if (!currentFilePath) {
+                    alert('请先打开一个文件');
+                    return;
+                }
+                
+                // 获取AI输出的内容
+                const aiOutput = document.getElementById('aiOutput');
+                const analysisContent = aiOutput.querySelector('div[style*="background-color: #1e1e1e"]');
+                if (!analysisContent) {
+                    alert('没有找到分析内容');
+                    return;
+                }
+                
+                const analysisText = analysisContent.textContent;
+                const insertContent = `\n\n## 💡 AI思想整合分析\n\n${analysisText}\n`;
+                
+                // 追加到当前文件
+                const response = await fetch('/api/append-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        path: currentFilePath, 
+                        content: insertContent 
+                    })
+                });
+                
+                if (response.ok) {
+                    updateStatus('✅ 分析已追加到当前笔记');
+                    alert('分析已成功追加到当前笔记！');
+                    // 重新加载文件内容
+                    loadFile(currentFilePath);
+                } else {
+                    throw new Error('追加失败');
+                }
+                
+            } catch (error) {
+                console.error('追加分析失败:', error);
+                alert('追加分析失败: ' + error.message);
+            }
+        }
+        
+        // 插入摘要到笔记
+        async function insertSummaryToNote() {
+            try {
+                if (!currentFilePath) {
+                    alert('请先打开一个文件');
+                    return;
+                }
+                
+                // 获取AI输出的内容
+                const aiOutput = document.getElementById('aiOutput');
+                const summaryContent = aiOutput.querySelector('div[style*="background-color: #1e1e1e"]');
+                if (!summaryContent) {
+                    alert('没有找到摘要内容');
+                    return;
+                }
+                
+                const summaryText = summaryContent.textContent;
+                const insertContent = `\n\n## 📝 AI生成摘要\n\n${summaryText}\n`;
+                
+                // 追加到当前文件
+                const response = await fetch('/api/append-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        path: currentFilePath, 
+                        content: insertContent 
+                    })
+                });
+                
+                if (response.ok) {
+                    updateStatus('✅ 摘要已插入到当前笔记');
+                    alert('摘要已成功插入到当前笔记！');
+                    // 重新加载文件内容
+                    loadFile(currentFilePath);
+                } else {
+                    throw new Error('插入失败');
+                }
+                
+            } catch (error) {
+                console.error('插入摘要失败:', error);
+                alert('插入摘要失败: ' + error.message);
+            }
+        }
+        
+        // 更新状态栏
+        function updateStatus(message) {
+            document.getElementById('statusText').textContent = message;
+        }
+        
+        // 显示通知弹窗
+        function showNotification(message, type = 'info', duration = 4000) {
+            console.log('showNotification called:', message, type);
+            // 移除已存在的通知
+            const existingNotification = document.querySelector('.notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+            
+            // 创建新通知
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <span>${message}</span>
+                <button class="close-btn" onclick="this.parentElement.remove()">&times;</button>
+            `;
+            
+            // 添加到页面
+            document.body.appendChild(notification);
+            
+            // 显示动画
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            // 自动隐藏
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.classList.remove('show');
+                    setTimeout(() => {
+                        if (notification.parentElement) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }
+            }, duration);
+        }
+        
+        // 全局快捷键支持
+        document.addEventListener('keydown', (e) => {
+            // 阻止浏览器默认的Ctrl+S和Ctrl+P
+            if (e.ctrlKey && (e.key === 's' || e.key === 'p')) {
+                e.preventDefault();
+            }
+        });
+        
+        // 回车键加载路径
+        document.getElementById('pathInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loadPath();
+            }
+        });
+        
+        // 初始化
+        window.addEventListener('load', () => {
+            updateStatus('🚀 正在初始化 Monaco Editor...');
+            initMonacoEditor();
+            
+            // 设置默认文件夹路径
+            const defaultPath = 'D:\\iCloudDrive\\iCloud~md~obsidian\\OwenZ personal';
+            document.getElementById('pathInput').value = defaultPath;
+            
+            // 自动加载默认文件夹
+            setTimeout(() => {
+                loadFileTree(defaultPath);
+            }, 1000);
+            
+            updateStatus('✅ 应用已启动，正在自动加载默认文件夹...');
+        });
+        
+        // ========== API 服务模块 ==========
+        
+        class AIApiService {
+            constructor() {
+                this.baseUrl = 'https://openrouter.ai/api/v1';
+                this.defaultHeaders = {
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'AI Knowledge Base Assistant'
+                };
+            }
+            
+            // 获取API配置
+            getApiConfig() {
+                const settings = getCurrentSettings();
+                if (!settings.openrouterApiKey) {
+                    throw new Error('请先在设置中配置OpenRouter API Key');
+                }
+                return {
+                    apiKey: settings.openrouterApiKey,
+                    model: settings.aiModel || 'anthropic/claude-3.5-sonnet'
+                };
+            }
+            
+            // 发送聊天请求
+            async sendChatRequest(messages, options = {}) {
+                try {
+                    const config = this.getApiConfig();
+                    
+                    const requestBody = {
+                        model: config.model,
+                        messages: messages,
+                        max_tokens: options.maxTokens || 4000,
+                        temperature: options.temperature || 0.7,
+                        top_p: options.topP || 0.9,
+                        stream: options.stream || false
+                    };
+                    
+                    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+                        method: 'POST',
+                        headers: {
+                            ...this.defaultHeaders,
+                            'Authorization': `Bearer ${config.apiKey}`
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(`API请求失败: ${response.status} - ${errorData.error?.message || response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    return data;
+                    
+                } catch (error) {
+                    console.error('API请求错误:', error);
+                    throw error;
+                }
+            }
+            
+            // 生成每日规划
+            async generateDailyPlan(context = {}) {
+                const messages = [
+                    {
+                        role: 'system',
+                        content: `你是一个专业的知识管理和时间规划助手。请根据用户的知识库内容和当前情况，生成一个详细的每日规划。
+                        
+规划应该包括：
+1. 今日重点任务（2-3个）
+2. 学习计划
+3. 笔记整理建议
+4. 时间分配建议
+
+请用Markdown格式输出，内容要具体可执行。`
+                    },
+                    {
+                        role: 'user',
+                        content: `请为我生成今日规划。
+
+当前知识库路径: ${context.knowledgeBasePath || '未设置'}
+当前时间: ${new Date().toLocaleString('zh-CN')}
+
+${context.additionalContext || ''}`
+                    }
+                ];
+                
+                return await this.sendChatRequest(messages);
+            }
+            
+            // 整合思想碎片
+            async integrateThoughts(fragments, context = {}) {
+                const messages = [
+                    {
+                        role: 'system',
+                        content: `你是一个专业的思想整合助手。请分析用户提供的思想碎片，找出其中的关联性和主题，并提供整合建议。
+                        
+分析应该包括：
+1. 主要主题识别
+2. 碎片间的关联性
+3. 整合建议
+4. 后续行动建议
+
+请用Markdown格式输出。`
+                    },
+                    {
+                        role: 'user',
+                        content: `请帮我整合以下思想碎片：
+
+${fragments}
+
+${context.additionalContext || ''}`
+                    }
+                ];
+                
+                return await this.sendChatRequest(messages);
+            }
+            
+            // 内容分析
+            async analyzeContent(content, analysisType = 'general') {
+                const systemPrompts = {
+                    general: '你是一个专业的内容分析师。请对提供的内容进行全面分析，包括主题、结构、关键点和改进建议。',
+                    summary: '你是一个专业的摘要生成助手。请为提供的内容生成简洁而全面的摘要。',
+                    keywords: '你是一个关键词提取专家。请从提供的内容中提取最重要的关键词和概念。'
+                };
+                
+                const messages = [
+                    {
+                        role: 'system',
+                        content: systemPrompts[analysisType] || systemPrompts.general
+                    },
+                    {
+                        role: 'user',
+                        content: `请分析以下内容：
+
+${content}`
+                    }
+                ];
+                
+                return await this.sendChatRequest(messages);
+            }
+            
+            // 检查API连接
+            async testConnection() {
+                try {
+                    const config = this.getApiConfig();
+                    
+                    const response = await fetch(`${this.baseUrl}/models`, {
+                        method: 'GET',
+                        headers: {
+                            ...this.defaultHeaders,
+                            'Authorization': `Bearer ${config.apiKey}`
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`连接测试失败: ${response.status}`);
+                    }
+                    
+                    return { success: true, message: 'API连接正常' };
+                    
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+        }
+        
+        // 创建全局API服务实例
+        const aiApiService = new AIApiService();
+        
+        // ========== 数据安全功能 ==========
+        
+        // 简单的加密/解密函数（基于Base64和简单异或）
+        class SimpleEncryption {
+            constructor() {
+                // 使用设备特征生成密钥
+                this.key = this.generateDeviceKey();
+            }
+            
+            generateDeviceKey() {
+                const userAgent = navigator.userAgent;
+                const screenInfo = `${screen.width}x${screen.height}`;
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const combined = userAgent + screenInfo + timezone;
+                
+                // 简单哈希生成密钥
+                let hash = 0;
+                for (let i = 0; i < combined.length; i++) {
+                    const char = combined.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // 转换为32位整数
+                }
+                return Math.abs(hash).toString(36);
+            }
+            
+            encrypt(text) {
+                if (!text) return '';
+                try {
+                    const encoded = btoa(unescape(encodeURIComponent(text)));
+                    let result = '';
+                    for (let i = 0; i < encoded.length; i++) {
+                        const keyChar = this.key.charCodeAt(i % this.key.length);
+                        const encodedChar = encoded.charCodeAt(i);
+                        result += String.fromCharCode(encodedChar ^ keyChar);
+                    }
+                    return btoa(result);
+                } catch (error) {
+                    console.error('加密失败:', error);
+                    return text;
+                }
+            }
+            
+            decrypt(encryptedText) {
+                if (!encryptedText) return '';
+                try {
+                    const encrypted = atob(encryptedText);
+                    let result = '';
+                    for (let i = 0; i < encrypted.length; i++) {
+                        const keyChar = this.key.charCodeAt(i % this.key.length);
+                        const encryptedChar = encrypted.charCodeAt(i);
+                        result += String.fromCharCode(encryptedChar ^ keyChar);
+                    }
+                    return decodeURIComponent(escape(atob(result)));
+                } catch (error) {
+                    console.error('解密失败:', error);
+                    return encryptedText;
+                }
+            }
+        }
+        
+        // 创建加密实例
+        const encryption = new SimpleEncryption();
+        
+        // 数据备份管理
+        class BackupManager {
+            constructor() {
+                this.maxBackups = 10;
+                this.backupKey = 'aiKnowledgeBaseBackups';
+            }
+            
+            createBackup(data, type = 'settings') {
+                try {
+                    const backup = {
+                        id: Date.now().toString(),
+                        type: type,
+                        data: data,
+                        timestamp: new Date().toISOString(),
+                        version: '1.0'
+                    };
+                    
+                    const backups = this.getBackups();
+                    backups.push(backup);
+                    
+                    // 只保留最近的备份
+                    if (backups.length > this.maxBackups) {
+                        backups.splice(0, backups.length - this.maxBackups);
+                    }
+                    
+                    localStorage.setItem(this.backupKey, JSON.stringify(backups));
+                    console.log(`${type}备份已创建:`, backup.id);
+                    return backup.id;
+                } catch (error) {
+                    console.error('创建备份失败:', error);
+                    return null;
+                }
+            }
+            
+            getBackups() {
+                try {
+                    return JSON.parse(localStorage.getItem(this.backupKey) || '[]');
+                } catch (error) {
+                    console.error('获取备份失败:', error);
+                    return [];
+                }
+            }
+            
+            restoreBackup(backupId) {
+                try {
+                    const backups = this.getBackups();
+                    const backup = backups.find(b => b.id === backupId);
+                    if (backup) {
+                        return backup.data;
+                    }
+                    return null;
+                } catch (error) {
+                    console.error('恢复备份失败:', error);
+                    return null;
+                }
+            }
+            
+            deleteBackup(backupId) {
+                try {
+                    const backups = this.getBackups();
+                    const filteredBackups = backups.filter(b => b.id !== backupId);
+                    localStorage.setItem(this.backupKey, JSON.stringify(filteredBackups));
+                    return true;
+                } catch (error) {
+                    console.error('删除备份失败:', error);
+                    return false;
+                }
+            }
+        }
+        
+        // 初始化备份管理器
+        const backupManager = new BackupManager();
+        
+        // Prompt模板管理类
+        class PromptTemplateManager {
+            constructor() {
+                this.storageKey = 'ai_prompt_templates';
+                this.initDefaultTemplates();
+            }
+            
+            // 初始化默认模板
+            initDefaultTemplates() {
+                const existing = this.getTemplates();
+                if (existing.length === 0) {
+                    this.resetToDefaults();
+                }
+            }
+            
+            // 重置为默认模板
+            resetToDefaults() {
+                const defaultTemplates = [
+                    {
+                        id: 'summary_basic',
+                        name: '文档总结',
+                        description: '对文档内容进行简洁的总结',
+                        category: 'summary',
+                        content: '请对以下文档内容进行总结，提取关键信息和要点：\n\n文档名称：{filename}\n文档内容：\n{content}\n\n请提供：\n1. 主要内容概述\n2. 关键要点（3-5个）\n3. 结论或建议'
+                    },
+                    {
+                        id: 'analysis_deep',
+                        name: '深度分析',
+                        description: '对文档进行深入的分析和解读',
+                        category: 'analysis',
+                        content: '请对以下文档进行深度分析：\n\n文档名称：{filename}\n文档内容：\n{content}\n\n请从以下角度进行分析：\n1. 内容结构和逻辑\n2. 关键概念和术语\n3. 潜在问题或改进点\n4. 相关性和实用性评估'
+                    },
+                    {
+                        id: 'planning_action',
+                        name: '行动规划',
+                        description: '基于文档内容制定行动计划',
+                        category: 'planning',
+                        content: '基于以下文档内容，请制定详细的行动规划：\n\n文档名称：{filename}\n文档内容：\n{content}\n\n请提供：\n1. 目标设定\n2. 具体行动步骤\n3. 时间安排建议\n4. 资源需求\n5. 风险评估和应对措施'
+                    },
+                    {
+                        id: 'writing_improve',
+                        name: '写作改进',
+                        description: '改进文档的写作质量和表达',
+                        category: 'writing',
+                        content: '请帮助改进以下文档的写作质量：\n\n文档名称：{filename}\n原始内容：\n{content}\n\n请提供：\n1. 语言表达的改进建议\n2. 结构优化建议\n3. 内容补充建议\n4. 修改后的版本（如果需要）'
+                    }
+                ];
+                
+                localStorage.setItem(this.storageKey, JSON.stringify(defaultTemplates));
+            }
+            
+            // 获取所有模板
+            getTemplates() {
+                const stored = localStorage.getItem(this.storageKey);
+                return stored ? JSON.parse(stored) : [];
+            }
+            
+            // 保存模板
+            saveTemplate(template) {
+                const templates = this.getTemplates();
+                const existingIndex = templates.findIndex(t => t.id === template.id);
+                
+                if (existingIndex >= 0) {
+                    templates[existingIndex] = template;
+                } else {
+                    template.id = 'custom_' + Date.now();
+                    templates.push(template);
+                }
+                
+                localStorage.setItem(this.storageKey, JSON.stringify(templates));
+                return template;
+            }
+            
+            // 删除模板
+            deleteTemplate(templateId) {
+                const templates = this.getTemplates();
+                const filtered = templates.filter(t => t.id !== templateId);
+                localStorage.setItem(this.storageKey, JSON.stringify(filtered));
+            }
+            
+            // 获取单个模板
+            getTemplate(templateId) {
+                const templates = this.getTemplates();
+                return templates.find(t => t.id === templateId);
+            }
+            
+            // 应用模板变量替换
+            applyTemplate(templateId, variables = {}) {
+                const template = this.getTemplate(templateId);
+                if (!template) return null;
+                
+                let content = template.content;
+                
+                // 替换变量
+                Object.keys(variables).forEach(key => {
+                    const placeholder = `{${key}}`;
+                    content = content.replace(new RegExp(placeholder, 'g'), variables[key] || '');
+                });
+                
+                return {
+                    ...template,
+                    processedContent: content
+                };
+            }
+        }
+        
+        // 初始化Prompt模板管理器
+        const promptManager = new PromptTemplateManager();
+        let currentEditingTemplate = null;
+        
+        // ========== 设置功能 ==========
+        
+        // 打开设置模态框
+        function openSettings() {
+            const modal = document.getElementById('settingsModal');
+            modal.style.display = 'block';
+            loadSettings();
+            switchTab('basic'); // 默认显示基本设置
+        }
+        
+        // 切换选项卡
+        function switchTab(tabName) {
+            // 隐藏所有选项卡内容
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 移除所有选项卡按钮的激活状态
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 显示选中的选项卡
+            const targetTab = document.getElementById(tabName + 'Tab');
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+            
+            // 激活对应的选项卡按钮
+            event.target.classList.add('active');
+            
+            // 如果切换到备份选项卡，刷新备份列表
+             if (tabName === 'backup') {
+                 refreshBackupList();
+             }
+             
+             // 如果切换到Prompt选项卡，刷新模板列表
+             if (tabName === 'prompt') {
+                 refreshPromptTemplateList();
+             }
+         }
+         
+         // 创建手动备份
+         function createManualBackup() {
+             try {
+                 const settings = getCurrentSettings();
+                 backupManager.createBackup(settings, 'manual');
+                 updateStatus('手动备份创建成功', 'success');
+                 refreshBackupList();
+             } catch (error) {
+                 console.error('创建备份失败:', error);
+                 updateStatus('创建备份失败: ' + error.message, 'error');
+             }
+         }
+         
+         // 刷新备份列表
+         function refreshBackupList() {
+             const backupList = document.getElementById('backupList');
+             const backups = backupManager.getBackups();
+             
+             if (backups.length === 0) {
+                 backupList.innerHTML = '<p style="color: #888888; text-align: center; padding: 20px;">暂无备份</p>';
+                 return;
+             }
+             
+             backupList.innerHTML = backups.map(backup => {
+                 const date = new Date(backup.timestamp);
+                 const timeStr = date.toLocaleString('zh-CN');
+                 const typeText = backup.type === 'auto' ? '自动备份' : '手动备份';
+                 
+                 return `
+                     <div class="backup-item">
+                         <div>
+                             <div class="backup-info-text">${typeText}</div>
+                             <div class="backup-time">${timeStr}</div>
+                         </div>
+                         <div class="backup-actions-btn">
+                             <button class="btn btn-small" onclick="restoreBackup('${backup.id}')" title="恢复此备份">
+                                 恢复
+                             </button>
+                             <button class="btn btn-small" onclick="deleteBackup('${backup.id}')" title="删除此备份" style="background-color: #d73a49;">
+                                 删除
+                             </button>
+                         </div>
+                     </div>
+                 `;
+             }).join('');
+         }
+         
+         // 恢复备份
+         function restoreBackup(backupId) {
+             if (!confirm('确定要恢复此备份吗？当前设置将被覆盖。')) {
+                 return;
+             }
+             
+             try {
+                 const backup = backupManager.restoreBackup(backupId);
+                 if (backup) {
+                     // 重新加载设置到界面
+                     loadSettings();
+                     updateStatus('备份恢复成功', 'success');
+                 } else {
+                     updateStatus('备份恢复失败：备份不存在', 'error');
+                 }
+             } catch (error) {
+                 console.error('恢复备份失败:', error);
+                 updateStatus('恢复备份失败: ' + error.message, 'error');
+             }
+         }
+         
+         // 删除备份
+         function deleteBackup(backupId) {
+             if (!confirm('确定要删除此备份吗？此操作不可撤销。')) {
+                 return;
+             }
+             
+             try {
+                 backupManager.deleteBackup(backupId);
+                 updateStatus('备份删除成功', 'success');
+                 refreshBackupList();
+             } catch (error) {
+                 console.error('删除备份失败:', error);
+                 updateStatus('删除备份失败: ' + error.message, 'error');
+              }
+          }
+          
+          // ========== Prompt模板管理功能 ==========
+          
+          // 刷新Prompt模板列表
+          function refreshPromptTemplateList() {
+              const templateList = document.getElementById('promptTemplateList');
+              const templates = promptManager.getTemplates();
+              
+              if (templates.length === 0) {
+                  templateList.innerHTML = '<p style="color: #888888; text-align: center; padding: 20px;">暂无模板，点击"添加模板"创建第一个模板</p>';
+                  return;
+              }
+              
+              templateList.innerHTML = templates.map(template => {
+                  const categoryColors = {
+                      summary: '#28a745',
+                      analysis: '#007acc',
+                      planning: '#ffc107',
+                      writing: '#dc3545',
+                      custom: '#6c757d'
+                  };
+                  
+                  const categoryColor = categoryColors[template.category] || '#6c757d';
+                  const previewContent = template.content.length > 100 
+                      ? template.content.substring(0, 100) + '...' 
+                      : template.content;
+                  
+                  return `
+                      <div class="prompt-item">
+                          <div class="prompt-header">
+                              <h5 class="prompt-title">${template.name}</h5>
+                              <span class="prompt-category" style="background-color: ${categoryColor}">${getCategoryName(template.category)}</span>
+                          </div>
+                          <div class="prompt-description">${template.description}</div>
+                          <div class="prompt-content-preview">${previewContent}</div>
+                          <div class="prompt-actions-btn">
+                              <button class="btn btn-small" onclick="usePromptTemplate('${template.id}')" title="使用此模板">
+                                  🚀 使用
+                              </button>
+                              <button class="btn btn-small" onclick="editPromptTemplate('${template.id}')" title="编辑模板">
+                                  ✏️ 编辑
+                              </button>
+                              <button class="btn btn-small" onclick="deletePromptTemplate('${template.id}')" title="删除模板" style="background-color: #d73a49;">
+                                  🗑️ 删除
+                              </button>
+                          </div>
+                      </div>
+                  `;
+              }).join('');
+          }
+          
+          // 获取分类名称
+          function getCategoryName(category) {
+              const names = {
+                  summary: '总结',
+                  analysis: '分析',
+                  planning: '规划',
+                  writing: '写作',
+                  custom: '自定义'
+              };
+              return names[category] || '自定义';
+          }
+          
+          // 添加新模板
+          function addPromptTemplate() {
+              currentEditingTemplate = null;
+              document.getElementById('promptName').value = '';
+              document.getElementById('promptDescription').value = '';
+              document.getElementById('promptContent').value = '';
+              document.getElementById('promptCategory').value = 'custom';
+              document.getElementById('promptEditModal').style.display = 'block';
+          }
+          
+          // 编辑模板
+          function editPromptTemplate(templateId) {
+              const template = promptManager.getTemplate(templateId);
+              if (!template) return;
+              
+              currentEditingTemplate = template;
+              document.getElementById('promptName').value = template.name;
+              document.getElementById('promptDescription').value = template.description;
+              document.getElementById('promptContent').value = template.content;
+              document.getElementById('promptCategory').value = template.category;
+              document.getElementById('promptEditModal').style.display = 'block';
+          }
+          
+          // 保存模板
+          function savePromptTemplate() {
+              const name = document.getElementById('promptName').value.trim();
+              const description = document.getElementById('promptDescription').value.trim();
+              const content = document.getElementById('promptContent').value.trim();
+              const category = document.getElementById('promptCategory').value;
+              
+              if (!name) {
+                  updateStatus('请输入模板名称', 'error');
+                  return;
+              }
+              
+              if (!content) {
+                  updateStatus('请输入Prompt内容', 'error');
+                  return;
+              }
+              
+              const template = {
+                  id: currentEditingTemplate ? currentEditingTemplate.id : undefined,
+                  name,
+                  description,
+                  content,
+                  category
+              };
+              
+              try {
+                  promptManager.saveTemplate(template);
+                  updateStatus('模板保存成功', 'success');
+                  closePromptEditModal();
+                  refreshPromptTemplateList();
+              } catch (error) {
+                  console.error('保存模板失败:', error);
+                  updateStatus('保存模板失败: ' + error.message, 'error');
+              }
+          }
+          
+          // 删除模板
+          function deletePromptTemplate(templateId) {
+              if (!confirm('确定要删除此模板吗？此操作不可撤销。')) {
+                  return;
+              }
+              
+              try {
+                  promptManager.deleteTemplate(templateId);
+                  updateStatus('模板删除成功', 'success');
+                  refreshPromptTemplateList();
+              } catch (error) {
+                  console.error('删除模板失败:', error);
+                  updateStatus('删除模板失败: ' + error.message, 'error');
+              }
+          }
+          
+          // 重置默认模板
+          function resetDefaultTemplates() {
+              if (!confirm('确定要重置为默认模板吗？这将删除所有自定义模板。')) {
+                  return;
+              }
+              
+              try {
+                  promptManager.resetToDefaults();
+                  updateStatus('已重置为默认模板', 'success');
+                  refreshPromptTemplateList();
+              } catch (error) {
+                  console.error('重置模板失败:', error);
+                  updateStatus('重置模板失败: ' + error.message, 'error');
+              }
+          }
+          
+          // 使用模板
+          function usePromptTemplate(templateId) {
+              const template = promptManager.getTemplate(templateId);
+              if (!template) {
+                  updateStatus('模板不存在', 'error');
+                  return;
+              }
+              
+              // 获取当前上下文
+              const variables = {
+                  filename: currentFilePath ? currentFilePath.split('/').pop() : '未选择文件',
+                  content: monacoEditor ? monacoEditor.getValue() : '',
+                  selection: monacoEditor ? monacoEditor.getModel().getValueInRange(monacoEditor.getSelection()) : ''
+              };
+              
+              const processedTemplate = promptManager.applyTemplate(templateId, variables);
+              
+              // 将处理后的内容设置到AI输入框
+              const aiInput = document.getElementById('aiInput');
+              if (aiInput) {
+                  aiInput.value = processedTemplate.processedContent;
+                  updateStatus(`已应用模板: ${template.name}`, 'success');
+                  
+                  // 关闭设置模态框
+                  closeSettings();
+                  
+                  // 聚焦到AI输入框
+                  aiInput.focus();
+              } else {
+                  updateStatus('AI输入框未找到', 'error');
+              }
+          }
+          
+          // 关闭模板编辑模态框
+           function closePromptEditModal() {
+               document.getElementById('promptEditModal').style.display = 'none';
+               currentEditingTemplate = null;
+           }
+           
+           // 初始化快速模板选择器
+           function initQuickPromptSelect() {
+               const select = document.getElementById('quickPromptSelect');
+               if (!select) return;
+               
+               const templates = promptManager.getTemplates();
+               
+               // 清空现有选项（保留默认选项）
+               select.innerHTML = '<option value="">选择Prompt模板...</option>';
+               
+               // 添加模板选项
+               templates.forEach(template => {
+                   const option = document.createElement('option');
+                   option.value = template.id;
+                   option.textContent = `${getCategoryName(template.category)} - ${template.name}`;
+                   select.appendChild(option);
+               });
+           }
+           
+           // 应用快速模板
+           function applyQuickPrompt() {
+               const select = document.getElementById('quickPromptSelect');
+               const templateId = select.value;
+               
+               if (!templateId) return;
+               
+               const template = promptManager.getTemplate(templateId);
+               if (!template) {
+                   updateStatus('模板不存在', 'error');
+                   return;
+               }
+               
+               // 获取当前上下文
+               const variables = {
+                   filename: currentFilePath ? currentFilePath.split('/').pop() : '未选择文件',
+                   content: monacoEditor ? monacoEditor.getValue() : '',
+                   selection: monacoEditor ? monacoEditor.getModel().getValueInRange(monacoEditor.getSelection()) : ''
+               };
+               
+               const processedTemplate = promptManager.applyTemplate(templateId, variables);
+               
+               // 将处理后的内容设置到AI输入框
+               const aiInput = document.getElementById('aiInput');
+               if (aiInput) {
+                   aiInput.value = processedTemplate.processedContent;
+                   updateStatus(`已应用模板: ${template.name}`, 'success');
+                   
+                   // 重置选择器
+                   select.value = '';
+                   
+                   // 聚焦到AI输入框
+                   aiInput.focus();
+               }
+           }
+           
+           // 发送到AI
+           async function sendToAI() {
+               const aiInput = document.getElementById('aiInput');
+               const aiOutput = document.getElementById('aiOutput');
+               
+               if (!aiInput || !aiOutput) {
+                   updateStatus('AI界面元素未找到', 'error');
+                   return;
+               }
+               
+               const inputText = aiInput.value.trim();
+               if (!inputText) {
+                   updateStatus('请输入问题或选择模板', 'error');
+                   return;
+               }
+               
+               // 检查设置
+               const settings = getCurrentSettings();
+               if (!settings.openrouterApiKey) {
+                   updateStatus('请先在设置中配置OpenRouter API Key', 'error');
+                   return;
+               }
+               
+               try {
+                   // 显示加载状态
+                   aiOutput.innerHTML = '<div style="text-align: center; color: #007acc; padding: 20px;">🤖 AI正在思考中...</div>';
+                   updateStatus('正在发送请求到AI...', 'info');
+                   
+                   // 发送请求到AI
+                   const response = await aiApiService.sendMessage(inputText);
+                   
+                   // 显示AI回复
+                   aiOutput.innerHTML = `
+                       <div style="background-color: #2d2d30; border: 1px solid #464647; border-radius: 6px; padding: 15px; margin-bottom: 10px;">
+                           <div style="color: #007acc; font-weight: bold; margin-bottom: 8px;">🤖 AI回复：</div>
+                           <div style="color: #cccccc; line-height: 1.6; white-space: pre-wrap;">${response}</div>
+                       </div>
+                       <div style="text-align: center; margin-top: 10px;">
+                           <button class="btn btn-small" onclick="insertAIResponseToNote('${response.replace(/'/g, "\\'")}')">📝 插入到笔记</button>
+                           <button class="btn btn-small" onclick="clearAIConversation()">🗑️ 清空对话</button>
+                       </div>
+                   `;
+                   
+                   updateStatus('AI回复完成', 'success');
+                   
+                   // 清空输入框
+                   aiInput.value = '';
+                   
+               } catch (error) {
+                   console.error('AI请求失败:', error);
+                   aiOutput.innerHTML = `
+                       <div style="background-color: #d73a49; border: 1px solid #dc3545; border-radius: 6px; padding: 15px; color: #ffffff;">
+                           <div style="font-weight: bold; margin-bottom: 8px;">❌ 请求失败</div>
+                           <div>${error.message}</div>
+                       </div>
+                   `;
+                   updateStatus('AI请求失败: ' + error.message, 'error');
+               }
+           }
+           
+           // 插入AI回复到笔记
+           function insertAIResponseToNote(response) {
+               if (!currentFilePath) {
+                   updateStatus('请先选择一个文件', 'error');
+                   return;
+               }
+               
+               if (!monacoEditor) {
+                   updateStatus('编辑器未初始化', 'error');
+                   return;
+               }
+               
+               // 在当前光标位置插入AI回复
+               const position = monacoEditor.getPosition();
+               const text = `\n\n## AI回复\n\n${response}\n\n`;
+               
+               monacoEditor.executeEdits('insert-ai-response', [{
+                   range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+                   text: text
+               }]);
+               
+               updateStatus('AI回复已插入到笔记', 'success');
+           }
+           
+           // 清空AI对话
+           function clearAIConversation() {
+               const aiOutput = document.getElementById('aiOutput');
+               const aiInput = document.getElementById('aiInput');
+               
+               if (aiOutput) {
+                   aiOutput.innerHTML = '<p style="color: #a0a0a0; text-align: center; margin-top: 50px;">🤖 AI助手已就绪<br><br>选择模板或输入问题开始对话</p>';
+               }
+               
+               if (aiInput) {
+                   aiInput.value = '';
+               }
+               
+               updateStatus('对话已清空', 'success');
+           }
+           
+
+           
+           // 刷新模型列表
+           async function refreshModelList() {
+               const apiKeyInput = document.getElementById('openrouterApiKey');
+               const modelSelect = document.getElementById('aiModel');
+               const refreshBtn = document.getElementById('refreshModels');
+               
+               const apiKey = apiKeyInput.value.trim();
+               if (!apiKey) {
+                   updateStatus('请先输入并校验API密钥', 'error');
+                   showNotification('请先输入并校验API密钥', 'warning');
+                   return;
+               }
+               
+               // 显示加载状态
+               refreshBtn.disabled = true;
+               refreshBtn.innerHTML = '<span class="loading-spinner">●</span> 加载中...';
+               updateStatus('正在获取模型列表...', 'info');
+               
+               try {
+                   const response = await fetch('https://openrouter.ai/api/v1/models', {
+                       method: 'GET',
+                       headers: {
+                           'Authorization': `Bearer ${apiKey}`,
+                           'Content-Type': 'application/json'
+                       }
+                   });
+                   
+                   if (response.ok) {
+                       const data = await response.json();
+                       const models = data.data || [];
+                       
+                       // 保存当前选中的模型
+                       const currentModel = modelSelect.value;
+                       
+                       // 清空现有选项
+                       modelSelect.innerHTML = '';
+                       
+                       // 按提供商分组模型
+                       const modelsByProvider = {};
+                       models.forEach(model => {
+                           const provider = model.id.split('/')[0];
+                           if (!modelsByProvider[provider]) {
+                               modelsByProvider[provider] = [];
+                           }
+                           modelsByProvider[provider].push(model);
+                       });
+                       
+                       // 添加推荐模型
+                       const recommendedModels = [
+                           'anthropic/claude-3.5-sonnet',
+                           'openai/gpt-4o',
+                           'openai/gpt-4o-mini',
+                           'google/gemini-pro-1.5'
+                       ];
+                       
+                       // 添加推荐模型组
+                       const recommendedGroup = document.createElement('optgroup');
+                       recommendedGroup.label = '推荐模型';
+                       modelSelect.appendChild(recommendedGroup);
+                       
+                       recommendedModels.forEach(modelId => {
+                           const model = models.find(m => m.id === modelId);
+                           if (model) {
+                               const option = document.createElement('option');
+                               option.value = model.id;
+                               option.textContent = `${model.name || model.id} ${modelId === 'anthropic/claude-3.5-sonnet' ? '(推荐)' : ''}`;
+                               recommendedGroup.appendChild(option);
+                           }
+                       });
+                       
+                       // 添加其他模型组
+                       Object.keys(modelsByProvider).sort().forEach(provider => {
+                           const providerModels = modelsByProvider[provider];
+                           if (providerModels.length === 0) return;
+                           
+                           const group = document.createElement('optgroup');
+                           group.label = provider.charAt(0).toUpperCase() + provider.slice(1);
+                           
+                           providerModels
+                               .filter(model => !recommendedModels.includes(model.id))
+                               .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
+                               .forEach(model => {
+                                   const option = document.createElement('option');
+                                   option.value = model.id;
+                                   option.textContent = model.name || model.id;
+                                   group.appendChild(option);
+                               });
+                           
+                           if (group.children.length > 0) {
+                               modelSelect.appendChild(group);
+                           }
+                       });
+                       
+                       // 恢复之前选中的模型
+                       if (currentModel) {
+                           modelSelect.value = currentModel;
+                       }
+                       
+                       updateStatus(`成功获取 ${models.length} 个模型`, 'success');
+                       showNotification(`成功获取 ${models.length} 个可用模型`, 'success');
+                   } else {
+                       const errorData = await response.json().catch(() => ({}));
+                       const errorMsg = errorData.error?.message || response.statusText;
+                       updateStatus(`获取模型列表失败: ${errorMsg}`, 'error');
+                       showNotification(`获取模型列表失败: ${errorMsg}`, 'error');
+                   }
+               } catch (error) {
+                   console.error('获取模型列表失败:', error);
+                   const errorMsg = error.message || '网络连接失败';
+                   updateStatus('获取模型列表失败: ' + errorMsg, 'error');
+                   showNotification(`获取模型列表失败: ${errorMsg}，请检查网络连接后重试`, 'error');
+               } finally {
+                   refreshBtn.disabled = false;
+                   refreshBtn.innerHTML = '🔄 刷新';
+               }
+           }
+        
+        // 关闭设置模态框
+        function closeSettings() {
+            const modal = document.getElementById('settingsModal');
+            modal.style.display = 'none';
+        }
+        
+        // 加载设置
+        function loadSettings() {
+            try {
+                const settings = JSON.parse(localStorage.getItem('aiKnowledgeBaseSettings') || '{}');
+                
+                document.getElementById('knowledgeBasePath').value = settings.knowledgeBasePath || '';
+                // 解密API Key
+                const decryptedApiKey = settings.openrouterApiKey ? encryption.decrypt(settings.openrouterApiKey) : '';
+                document.getElementById('openrouterApiKey').value = decryptedApiKey;
+                document.getElementById('aiModel').value = settings.aiModel || 'anthropic/claude-3.5-sonnet';
+                document.getElementById('autoBackup').value = settings.autoBackup || 'true';
+            } catch (error) {
+                console.error('加载设置失败:', error);
+                updateStatus('⚠️ 加载设置失败');
+            }
+        }
+        
+        // 保存设置
+        function saveSettings() {
+            try {
+                const rawApiKey = document.getElementById('openrouterApiKey').value.trim();
+                const settings = {
+                    knowledgeBasePath: document.getElementById('knowledgeBasePath').value.trim(),
+                    openrouterApiKey: rawApiKey ? encryption.encrypt(rawApiKey) : '', // 加密API Key
+                    aiModel: document.getElementById('aiModel').value,
+                    autoBackup: document.getElementById('autoBackup').value,
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                // 验证必填字段
+                if (!settings.knowledgeBasePath) {
+                    alert('请输入知识库路径');
+                    return;
+                }
+                
+                if (!rawApiKey) {
+                    alert('请输入OpenRouter API Key');
+                    return;
+                }
+                
+                // 验证API Key格式
+                if (!rawApiKey.startsWith('sk-or-v1-')) {
+                    alert('API Key格式不正确，应以"sk-or-v1-"开头');
+                    return;
+                }
+                
+                // 保存到localStorage
+                localStorage.setItem('aiKnowledgeBaseSettings', JSON.stringify(settings));
+                
+                // 如果启用了自动备份，创建备份
+                if (settings.autoBackup === 'true') {
+                    backupManager.createBackup(settings, 'settings');
+                }
+                
+                updateStatus('✅ 设置已保存');
+                closeSettings();
+                
+                // 如果知识库路径发生变化，自动加载新路径
+                if (settings.knowledgeBasePath !== currentFolderPath) {
+                    document.getElementById('pathInput').value = settings.knowledgeBasePath;
+                    loadPath();
+                }
+                
+            } catch (error) {
+                console.error('保存设置失败:', error);
+                updateStatus('❌ 保存设置失败');
+                alert('保存设置失败: ' + error.message);
+            }
+        }
+        
+        
+        // 获取当前设置
+        function getCurrentSettings() {
+            try {
+                const settings = JSON.parse(localStorage.getItem('aiKnowledgeBaseSettings') || '{}');
+                // 解密API Key用于实际使用
+                if (settings.openrouterApiKey) {
+                    settings.openrouterApiKey = encryption.decrypt(settings.openrouterApiKey);
+                }
+                return settings;
+            } catch (error) {
+                console.error('获取设置失败:', error);
+                return {};
+            }
+        }
+        
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('settingsModal');
+            if (event.target === modal) {
+                closeSettings();
+            }
+        }
+        
+        // ESC键关闭模态框
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modal = document.getElementById('settingsModal');
+                if (modal.style.display === 'block') {
+                    closeSettings();
+                }
+            }
+        });
+        
+        // ========== 面板Tab切换功能 ==========
+        
+        // 切换面板Tab
+        function switchPanelTab(tabName) {
+            // 移除所有Tab按钮的激活状态
+            document.querySelectorAll('.panel-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 隐藏所有面板内容
+            document.querySelectorAll('.panel-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // 激活选中的Tab
+            event.target.classList.add('active');
+            
+            // 显示对应的面板内容
+            const targetPanel = document.getElementById(tabName + 'Panel');
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
+            
+            updateStatus(`已切换到${tabName === 'ai' ? 'AI助手' : '番茄钟'}面板`);
+        }
+        
+        // ========== 番茄钟功能 ==========
+        
+        let timerInterval = null;
+        let totalSeconds = 25 * 60; // 默认25分钟
+        let remainingSeconds = totalSeconds;
+        let isTimerRunning = false;
+        let timerStats = {
+            completedPomodoros: 0,
+            focusTime: 0,
+            breakTime: 0
+        };
+        
+        // 格式化时间显示
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // 更新计时器显示
+        function updateTimerDisplay() {
+            const display = document.getElementById('timerDisplay');
+            const status = document.getElementById('timerStatus');
+            
+            if (display) {
+                display.textContent = formatTime(remainingSeconds);
+                
+                // 时间紧迫时改变颜色
+                if (remainingSeconds <= 300 && isTimerRunning) { // 最后5分钟
+                    display.style.color = '#f39c12';
+                } else if (remainingSeconds <= 60 && isTimerRunning) { // 最后1分钟
+                    display.style.color = '#e74c3c';
+                } else {
+                    display.style.color = '#4fc3f7';
+                }
+            }
+            
+            if (status) {
+                if (isTimerRunning) {
+                    status.textContent = '正在专注工作中...';
+                } else if (remainingSeconds === 0) {
+                    status.textContent = '时间到！该休息一下了';
+                } else {
+                    status.textContent = '准备开始工作';
+                }
+            }
+        }
+        
+        // 开始计时器
+        function startTimer() {
+            if (isTimerRunning) return;
+            
+            isTimerRunning = true;
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            
+            if (startBtn) {
+                startBtn.style.display = 'none';
+            }
+            if (pauseBtn) {
+                pauseBtn.style.display = 'inline-flex';
+            }
+            
+            timerInterval = setInterval(() => {
+                remainingSeconds--;
+                updateTimerDisplay();
+                
+                if (remainingSeconds <= 0) {
+                    timerComplete();
+                }
+            }, 1000);
+            
+            updateStatus('🍅 番茄钟已开始');
+            updateTimerDisplay();
+        }
+        
+        // 暂停计时器
+        function pauseTimer() {
+            if (!isTimerRunning) return;
+            
+            isTimerRunning = false;
+            clearInterval(timerInterval);
+            
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            
+            if (startBtn) {
+                startBtn.style.display = 'inline-flex';
+                startBtn.innerHTML = '▶️ 继续';
+            }
+            if (pauseBtn) {
+                pauseBtn.style.display = 'none';
+            }
+            
+            updateStatus('⏸️ 番茄钟已暂停');
+            updateTimerDisplay();
+        }
+        
+        // 重置计时器
+        function resetTimer() {
+            isTimerRunning = false;
+            clearInterval(timerInterval);
+            remainingSeconds = totalSeconds;
+            
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            
+            if (startBtn) {
+                startBtn.style.display = 'inline-flex';
+                startBtn.innerHTML = '▶️ 开始';
+            }
+            if (pauseBtn) {
+                pauseBtn.style.display = 'none';
+            }
+            
+            updateStatus('🔄 番茄钟已重置');
+            updateTimerDisplay();
+        }
+        
+        // 计时器完成
+        function timerComplete() {
+            isTimerRunning = false;
+            clearInterval(timerInterval);
+            
+            // 更新统计
+            timerStats.completedPomodoros++;
+            timerStats.focusTime += Math.round(totalSeconds / 60);
+            updateTimerStats();
+            
+            // 保存统计到localStorage
+            const today = new Date().toDateString();
+            const dailyStats = JSON.parse(localStorage.getItem('pomodoroStats_' + today) || '{}');
+            Object.assign(dailyStats, timerStats);
+            localStorage.setItem('pomodoroStats_' + today, JSON.stringify(dailyStats));
+            
+            // 显示完成通知
+            showNotification('🎉 番茄钟完成！该休息一下了', 'success', 5000);
+            
+            // 重置计时器
+            resetTimer();
+            
+            updateStatus('✅ 番茄钟完成！');
+        }
+        
+        // 设置预设时间
+        function setPresetTime(minutes) {
+            totalSeconds = minutes * 60;
+            remainingSeconds = totalSeconds;
+            
+            // 更新预设按钮状态
+            document.querySelectorAll('.timer-preset').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 重置计时器状态
+            resetTimer();
+            updateTimerDisplay();
+            
+            updateStatus(`⏰ 已设置${minutes}分钟`);
+        }
+        
+        // 设置自定义时间
+        function setCustomTime() {
+            const customInput = document.getElementById('customMinutes');
+            const minutes = parseInt(customInput.value);
+            
+            if (!minutes || minutes < 1 || minutes > 120) {
+                showNotification('请输入1-120之间的有效分钟数', 'warning');
+                return;
+            }
+            
+            totalSeconds = minutes * 60;
+            remainingSeconds = totalSeconds;
+            
+            // 清除预设按钮状态
+            document.querySelectorAll('.timer-preset').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 重置计时器状态
+            resetTimer();
+            updateTimerDisplay();
+            
+            updateStatus(`⏰ 已设置自定义时间${minutes}分钟`);
+        }
+        
+        // 更新统计显示
+        function updateTimerStats() {
+            const completedElement = document.getElementById('completedPomodoros');
+            const focusTimeElement = document.getElementById('focusTime');
+            const breakTimeElement = document.getElementById('breakTime');
+            
+            if (completedElement) {
+                completedElement.textContent = timerStats.completedPomodoros;
+            }
+            if (focusTimeElement) {
+                focusTimeElement.textContent = timerStats.focusTime + '分钟';
+            }
+            if (breakTimeElement) {
+                breakTimeElement.textContent = timerStats.breakTime + '分钟';
+            }
+        }
+        
+        // 加载每日统计
+        function loadDailyStats() {
+            const today = new Date().toDateString();
+            const dailyStats = JSON.parse(localStorage.getItem('pomodoroStats_' + today) || '{}');
+            
+            timerStats.completedPomodoros = dailyStats.completedPomodoros || 0;
+            timerStats.focusTime = dailyStats.focusTime || 0;
+            timerStats.breakTime = dailyStats.breakTime || 0;
+            
+            updateTimerStats();
+        }
+
+        // 初始化Floating Dock交互效果
+        function initFloatingDock() {
+            const dockItems = document.querySelectorAll('.dock-item');
+            
+            // 添加鼠标进入时的动画效果
+            dockItems.forEach((item, index) => {
+                item.addEventListener('mouseenter', () => {
+                    // 为相邻的图标添加轻微的移动效果
+                    dockItems.forEach((otherItem, otherIndex) => {
+                        if (otherIndex !== index) {
+                            const distance = Math.abs(index - otherIndex);
+                            const delay = distance * 0.05;
+                            otherItem.style.transition = `all 0.3s ease ${delay}s`;
+                            
+                            // 距离越近，移动效果越明显
+                            if (distance === 1) {
+                                otherItem.style.transform = 'translateY(-3px)';
+                            } else if (distance === 2) {
+                                otherItem.style.transform = 'translateY(-1px)';
+                            }
+                        }
+                    });
+                });
+                
+                // 鼠标离开时恢复原状
+                item.addEventListener('mouseleave', () => {
+                    dockItems.forEach((otherItem) => {
+                        otherItem.style.transition = 'all 0.3s ease';
+                        otherItem.style.transform = '';
+                    });
+                });
+                
+                // 点击时添加弹跳动画
+                item.addEventListener('click', () => {
+                    item.style.animation = 'dock-bounce 0.5s';
+                    setTimeout(() => {
+                        item.style.animation = '';
+                    }, 500);
+                });
+            });
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载设置
+            loadSettings();
+            
+            // 初始化快速模板选择器
+            setTimeout(() => {
+                initQuickPromptSelect();
+            }, 100);
+            
+            // 初始化文件树
+             const knowledgeBasePath = getCurrentSettings().knowledgeBasePath;
+             if (knowledgeBasePath) {
+                 loadFileTree(knowledgeBasePath);
+             }
+             
+             // 为AI输入框添加快捷键支持
+             const aiInput = document.getElementById('aiInput');
+             if (aiInput) {
+                 aiInput.addEventListener('keydown', function(event) {
+                     if (event.ctrlKey && event.key === 'Enter') {
+                         event.preventDefault();
+                         sendToAI();
+                     }
+                 });
+             }
+             
+             // 初始化番茄钟
+             loadDailyStats();
+             updateTimerDisplay();
+             
+             // 初始化Floating Dock
+             setTimeout(() => {
+                 initFloatingDock();
+             }, 200);
+        });
+    </script>
+</body>
+</html>

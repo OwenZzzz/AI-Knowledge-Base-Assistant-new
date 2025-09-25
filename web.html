@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 知识库助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: #f5f5f5;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .file-tree {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .editor-container {
+            flex: 1;
+            display: flex;
+        }
+        
+        .editor {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            resize: none;
+        }
+        
+        .preview {
+            flex: 1;
+            padding: 20px;
+            background-color: #fafafa;
+            border-left: 1px solid #ddd;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .ai-panel {
+            width: 350px;
+            background-color: #fafafa;
+            border-left: 1px solid #ddd;
+            padding: 20px;
+        }
+        
+        .file-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-bottom: 2px;
+            transition: background-color 0.2s;
+        }
+        
+        .file-item:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .file-item.selected {
+            background-color: #007acc;
+            color: white;
+        }
+        
+        .file-item.directory {
+            font-weight: bold;
+        }
+        
+        .file-item.markdown {
+            color: #0066cc;
+        }
+        
+        .file-item.selected.markdown {
+            color: white;
+        }
+        
+        .toolbar {
+            height: 40px;
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+        }
+        
+        .btn {
+            padding: 6px 12px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            background-color: white;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+        
+        .btn:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .btn.active {
+            background-color: #007acc;
+            color: white;
+            border-color: #007acc;
+        }
+        
+        .status-bar {
+            height: 25px;
+            background-color: #007acc;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 12px;
+        }
+        
+        .welcome-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+            font-size: 16px;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .path-input {
+            flex: 1;
+            padding: 5px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        
+        .file-meta {
+            font-size: 11px;
+            color: #999;
+            margin-top: 2px;
+        }
+        
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+        
+        .error {
+            color: #d32f2f;
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="app-container">
+            <!-- 侧边栏 - 文件树 -->
+            <div class="sidebar">
+                <div class="toolbar">
+                    <input type="text" class="path-input" id="pathInput" placeholder="输入文件夹路径...">
+                    <button class="btn" onclick="loadPath()">加载</button>
+                    <button class="btn" onclick="refreshFileTree()">刷新</button>
+                </div>
+                <div class="file-tree" id="fileTree">
+                    <div class="welcome-message">
+                        请在上方输入文件夹路径<br>
+                        例如: C:\\Users\\YourName\\Documents
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 主内容区 - 编辑器 -->
+            <div class="main-content">
+                <div class="toolbar">
+                    <button class="btn" onclick="saveFile()" title="保存 (Ctrl+S)">💾 保存</button>
+                    <button class="btn" id="previewBtn" onclick="togglePreview()" title="预览 (Ctrl+P)">👁️ 预览</button>
+                    <span id="currentFile" style="margin-left: 10px; color: #666;">未选择文件</span>
+                </div>
+                <div class="editor-container">
+                    <textarea class="editor" id="editor" placeholder="请选择一个Markdown文件开始编辑...\n\n支持的快捷键:\nCtrl+S: 保存文件\nCtrl+P: 切换预览模式"></textarea>
+                    <div class="preview" id="preview"></div>
+                </div>
+            </div>
+            
+            <!-- AI面板 -->
+            <div class="ai-panel">
+                <h3>🤖 AI 助手</h3>
+                <div style="margin-top: 20px;">
+                    <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="generateDailyPlan()">📅 生成每日规划</button>
+                    <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="integrateThoughts()">💡 整合思想碎片</button>
+                    <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="analyzeContent()">📊 内容分析</button>
+                    <div id="aiOutput" style="margin-top: 20px; padding: 15px; background-color: white; border-radius: 4px; min-height: 200px; border: 1px solid #ddd;">
+                        <p style="color: #666; text-align: center; margin-top: 80px;">AI功能即将上线...<br><br>当前为演示版本，展示基础的文件管理和编辑功能</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-bar">
+            <span id="statusText">就绪 - AI知识库助手 v1.0</span>
+        </div>
+    </div>
+    
+    <script>
+        let currentFilePath = null;
+        let currentFolderPath = null;
+        let isPreviewMode = false;
+        
+        // 加载指定路径
+        async function loadPath() {
+            const pathInput = document.getElementById('pathInput');
+            const path = pathInput.value.trim();
+            
+            if (!path) {
+                updateStatus('请输入文件夹路径');
+                return;
+            }
+            
+            currentFolderPath = path;
+            await loadFileTree(path);
+        }
+        
+        // 加载文件树
+        async function loadFileTree(folderPath) {
+            const fileTreeElement = document.getElementById('fileTree');
+            fileTreeElement.innerHTML = '<div class="loading">正在加载文件树...</div>';
+            
+            try {
+                const response = await fetch(`/api/read-directory?path=${encodeURIComponent(folderPath)}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '加载失败');
+                }
+                
+                fileTreeElement.innerHTML = '';
+                
+                // 排序：文件夹在前，文件在后
+                data.sort((a, b) => {
+                    if (a.isDirectory && !b.isDirectory) return -1;
+                    if (!a.isDirectory && b.isDirectory) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+                
+                data.forEach(item => {
+                    // 过滤以点开头的文件和文件夹
+                    if (item.name.startsWith('.')) {
+                        return;
+                    }
+                    
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    
+                    if (item.isDirectory) {
+                        fileItem.className += ' directory';
+                        fileItem.innerHTML = `📁 ${item.name}`;
+                        fileItem.onclick = () => {
+                            document.getElementById('pathInput').value = item.path;
+                            loadFileTree(item.path);
+                        };
+                    } else if (item.name.endsWith('.md')) {
+                        fileItem.className += ' markdown';
+                        const modifiedDate = new Date(item.modified).toLocaleDateString('zh-CN');
+                        const modifiedTime = new Date(item.modified).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                        fileItem.innerHTML = `
+                            📄 ${item.name}
+                            <div class="file-meta">${modifiedDate} ${modifiedTime}</div>
+                        `;
+                        fileItem.onclick = () => openFile(item.path, fileItem);
+                    } else {
+                        fileItem.innerHTML = `📄 ${item.name}`;
+                        fileItem.onclick = () => openFile(item.path, fileItem);
+                    }
+                    
+                    fileTreeElement.appendChild(fileItem);
+                });
+                
+                updateStatus(`已加载文件夹: ${folderPath} (${data.length} 项)`);
+                
+            } catch (error) {
+                console.error('加载文件树失败:', error);
+                fileTreeElement.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+                updateStatus('加载文件树失败');
+            }
+        }
+        
+        // 打开文件
+        async function openFile(filePath, element) {
+            try {
+                updateStatus('正在打开文件...');
+                
+                const response = await fetch(`/api/read-file?path=${encodeURIComponent(filePath)}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '打开文件失败');
+                }
+                
+                document.getElementById('editor').value = data.content;
+                currentFilePath = filePath;
+                
+                // 更新当前文件显示
+                const fileName = filePath.split(/[\\/]/).pop();
+                document.getElementById('currentFile').textContent = fileName;
+                
+                // 高亮选中的文件
+                document.querySelectorAll('.file-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                if (element) {
+                    element.classList.add('selected');
+                }
+                
+                // 如果是预览模式，更新预览
+                if (isPreviewMode && filePath.endsWith('.md')) {
+                    updatePreview();
+                }
+                
+                updateStatus(`已打开: ${fileName}`);
+            } catch (error) {
+                console.error('打开文件失败:', error);
+                updateStatus(`打开文件失败: ${error.message}`);
+            }
+        }
+        
+        // 保存文件
+        async function saveFile() {
+            if (!currentFilePath) {
+                updateStatus('请先选择一个文件');
+                return;
+            }
+            
+            try {
+                updateStatus('正在保存文件...');
+                
+                const content = document.getElementById('editor').value;
+                const response = await fetch('/api/write-file', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        path: currentFilePath,
+                        content: content
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '保存失败');
+                }
+                
+                updateStatus('文件已保存 ✓');
+                
+                // 如果是预览模式，更新预览
+                if (isPreviewMode && currentFilePath.endsWith('.md')) {
+                    updatePreview();
+                }
+                
+            } catch (error) {
+                console.error('保存文件失败:', error);
+                updateStatus(`保存失败: ${error.message}`);
+            }
+        }
+        
+        // 切换预览模式
+        function togglePreview() {
+            const editor = document.getElementById('editor');
+            const preview = document.getElementById('preview');
+            const previewBtn = document.getElementById('previewBtn');
+            
+            isPreviewMode = !isPreviewMode;
+            
+            if (isPreviewMode) {
+                editor.style.flex = '1';
+                preview.style.display = 'block';
+                previewBtn.classList.add('active');
+                previewBtn.textContent = '📝 编辑';
+                
+                if (currentFilePath && currentFilePath.endsWith('.md')) {
+                    updatePreview();
+                } else {
+                    preview.innerHTML = '<p style="color: #666; text-align: center; margin-top: 50px;">请选择Markdown文件以查看预览</p>';
+                }
+                
+                updateStatus('已切换到预览模式');
+            } else {
+                preview.style.display = 'none';
+                previewBtn.classList.remove('active');
+                previewBtn.textContent = '👁️ 预览';
+                updateStatus('已切换到编辑模式');
+            }
+        }
+        
+        // 更新Markdown预览
+        function updatePreview() {
+            const content = document.getElementById('editor').value;
+            const preview = document.getElementById('preview');
+            
+            // 简单的Markdown渲染（实际项目中应使用专业的Markdown解析器）
+            let html = content
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+                .replace(/`(.*?)`/gim, '<code>$1</code>')
+                .replace(/\n/gim, '<br>');
+            
+            preview.innerHTML = html || '<p style="color: #666;">预览内容将在这里显示...</p>';
+        }
+        
+        // 刷新文件树
+        function refreshFileTree() {
+            if (currentFolderPath) {
+                loadFileTree(currentFolderPath);
+            } else {
+                updateStatus('请先选择文件夹');
+            }
+        }
+        
+        // AI功能（演示）
+        function generateDailyPlan() {
+            const output = document.getElementById('aiOutput');
+            output.innerHTML = `
+                <h4>📅 每日规划建议</h4>
+                <p style="margin: 10px 0; color: #666;">基于您的知识库内容，AI将为您生成个性化的每日规划...</p>
+                <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                    <strong>功能预览：</strong><br>
+                    • 分析您的项目和任务<br>
+                    • 根据PARA方法论组织内容<br>
+                    • 生成优先级排序的任务列表<br>
+                    • 提供时间分配建议
+                </div>
+                <p style="color: #999; font-size: 12px;">此功能将在第二阶段开发完成</p>
+            `;
+            updateStatus('AI每日规划功能演示');
+        }
+        
+        function integrateThoughts() {
+            const output = document.getElementById('aiOutput');
+            output.innerHTML = `
+                <h4>💡 思想整合</h4>
+                <p style="margin: 10px 0; color: #666;">AI将帮助您整合分散的思想碎片，形成完整的知识体系...</p>
+                <div style="background: #f0fff0; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                    <strong>功能预览：</strong><br>
+                    • 识别相关主题和概念<br>
+                    • 发现知识点之间的联系<br>
+                    • 生成思维导图<br>
+                    • 提供内容整合建议
+                </div>
+                <p style="color: #999; font-size: 12px;">此功能将在第二阶段开发完成</p>
+            `;
+            updateStatus('AI思想整合功能演示');
+        }
+        
+        function analyzeContent() {
+            const output = document.getElementById('aiOutput');
+            const content = document.getElementById('editor').value;
+            
+            if (!content.trim()) {
+                output.innerHTML = '<p style="color: #999;">请先在编辑器中输入一些内容</p>';
+                return;
+            }
+            
+            const wordCount = content.trim().split(/\s+/).length;
+            const charCount = content.length;
+            const lineCount = content.split('\n').length;
+            
+            output.innerHTML = `
+                <h4>📊 内容分析</h4>
+                <div style="background: #fff8f0; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                    <strong>基础统计：</strong><br>
+                    • 字符数: ${charCount}<br>
+                    • 单词数: ${wordCount}<br>
+                    • 行数: ${lineCount}<br>
+                    • 预计阅读时间: ${Math.ceil(wordCount / 200)} 分钟
+                </div>
+                <p style="color: #666; margin: 10px 0;">完整的AI分析功能将包括：</p>
+                <ul style="color: #666; margin-left: 20px;">
+                    <li>关键词提取</li>
+                    <li>主题分类</li>
+                    <li>情感分析</li>
+                    <li>内容质量评估</li>
+                </ul>
+            `;
+            updateStatus('内容分析完成');
+        }
+        
+        // 更新状态栏
+        function updateStatus(message) {
+            document.getElementById('statusText').textContent = message;
+        }
+        
+        // 快捷键支持
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                saveFile();
+            } else if (e.ctrlKey && e.key === 'p') {
+                e.preventDefault();
+                togglePreview();
+            }
+        });
+        
+        // 编辑器内容变化时更新预览
+        document.getElementById('editor').addEventListener('input', () => {
+            if (isPreviewMode && currentFilePath && currentFilePath.endsWith('.md')) {
+                updatePreview();
+            }
+        });
+        
+        // 回车键加载路径
+        document.getElementById('pathInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loadPath();
+            }
+        });
+        
+        // 初始化
+        updateStatus('AI 知识库助手已启动 - 请输入文件夹路径开始使用');
+        
+        // 设置默认路径（Windows用户文档目录）
+        document.getElementById('pathInput').value = 'C:\\Users\\' + (window.navigator.userAgent.includes('Windows') ? 'YourName' : 'username') + '\\Documents';
+    </script>
+</body>
+</html>

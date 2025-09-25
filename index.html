@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 知识库助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: #f5f5f5;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .file-tree {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .editor-container {
+            flex: 1;
+            display: flex;
+        }
+        
+        .editor {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            resize: none;
+        }
+        
+        .ai-panel {
+            width: 350px;
+            background-color: #fafafa;
+            border-left: 1px solid #ddd;
+            padding: 20px;
+        }
+        
+        .file-item {
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-bottom: 2px;
+        }
+        
+        .file-item:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .file-item.selected {
+            background-color: #007acc;
+            color: white;
+        }
+        
+        .file-item.directory {
+            font-weight: bold;
+        }
+        
+        .file-item.markdown {
+            color: #0066cc;
+        }
+        
+        .toolbar {
+            height: 40px;
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+        }
+        
+        .btn {
+            padding: 5px 10px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            background-color: white;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        
+        .btn:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .status-bar {
+            height: 25px;
+            background-color: #007acc;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 12px;
+        }
+        
+        .welcome-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="app-container">
+            <!-- 侧边栏 - 文件树 -->
+            <div class="sidebar">
+                <div class="toolbar">
+                    <button class="btn" onclick="selectFolder()">选择文件夹</button>
+                    <button class="btn" onclick="refreshFileTree()">刷新</button>
+                </div>
+                <div class="file-tree" id="fileTree">
+                    <div class="welcome-message">请选择知识库文件夹</div>
+                </div>
+            </div>
+            
+            <!-- 主内容区 - 编辑器 -->
+            <div class="main-content">
+                <div class="toolbar">
+                    <button class="btn" onclick="saveFile()" title="保存 (Ctrl+S)">保存</button>
+                    <button class="btn" onclick="togglePreview()" title="预览 (Ctrl+P)">预览</button>
+                    <span id="currentFile">未选择文件</span>
+                </div>
+                <div class="editor-container">
+                    <textarea class="editor" id="editor" placeholder="请选择一个Markdown文件开始编辑..."></textarea>
+                </div>
+            </div>
+            
+            <!-- AI面板 -->
+            <div class="ai-panel">
+                <h3>AI 助手</h3>
+                <div style="margin-top: 20px;">
+                    <button class="btn" style="width: 100%; margin-bottom: 10px;">生成每日规划</button>
+                    <button class="btn" style="width: 100%; margin-bottom: 10px;">整合思想碎片</button>
+                    <div style="margin-top: 20px; padding: 10px; background-color: white; border-radius: 4px; min-height: 200px;">
+                        <p style="color: #666; text-align: center; margin-top: 80px;">AI功能即将上线...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-bar">
+            <span id="statusText">就绪</span>
+        </div>
+    </div>
+    
+    <script>
+        const { ipcRenderer } = require('electron');
+        const { dialog } = require('@electron/remote');
+        
+        let currentFilePath = null;
+        let currentFolderPath = null;
+        
+        // 选择文件夹
+        async function selectFolder() {
+            try {
+                const result = await dialog.showOpenDialog({
+                    properties: ['openDirectory']
+                });
+                
+                if (!result.canceled && result.filePaths.length > 0) {
+                    currentFolderPath = result.filePaths[0];
+                    await loadFileTree(currentFolderPath);
+                    updateStatus('已加载文件夹: ' + currentFolderPath);
+                }
+            } catch (error) {
+                console.error('选择文件夹失败:', error);
+                updateStatus('选择文件夹失败');
+            }
+        }
+        
+        // 加载文件树
+        async function loadFileTree(folderPath) {
+            try {
+                const items = await ipcRenderer.invoke('read-directory', folderPath);
+                const fileTreeElement = document.getElementById('fileTree');
+                fileTreeElement.innerHTML = '';
+                
+                // 排序：文件夹在前，文件在后
+                items.sort((a, b) => {
+                    if (a.isDirectory && !b.isDirectory) return -1;
+                    if (!a.isDirectory && b.isDirectory) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+                
+                items.forEach(item => {
+                    // 过滤以点开头的文件和文件夹
+                    if (item.name.startsWith('.')) {
+                        return;
+                    }
+                    
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    
+                    if (item.isDirectory) {
+                        fileItem.className += ' directory';
+                        fileItem.textContent = '📁 ' + item.name;
+                        fileItem.onclick = () => loadFileTree(item.path);
+                    } else if (item.name.endsWith('.md')) {
+                        fileItem.className += ' markdown';
+                        const modifiedDate = new Date(item.modified).toLocaleDateString();
+                        fileItem.innerHTML = `📄 ${item.name}<br><small style="color: #999;">${modifiedDate}</small>`;
+                        fileItem.onclick = () => openFile(item.path);
+                    } else {
+                        fileItem.textContent = '📄 ' + item.name;
+                    }
+                    
+                    fileTreeElement.appendChild(fileItem);
+                });
+                
+                // 添加返回上级目录的选项
+                if (folderPath !== currentFolderPath) {
+                    const backItem = document.createElement('div');
+                    backItem.className = 'file-item directory';
+                    backItem.textContent = '⬆️ 返回上级';
+                    backItem.onclick = () => {
+                        const parentPath = require('path').dirname(folderPath);
+                        loadFileTree(parentPath);
+                    };
+                    fileTreeElement.insertBefore(backItem, fileTreeElement.firstChild);
+                }
+                
+            } catch (error) {
+                console.error('加载文件树失败:', error);
+                updateStatus('加载文件树失败');
+            }
+        }
+        
+        // 打开文件
+        async function openFile(filePath) {
+            try {
+                const content = await ipcRenderer.invoke('read-file', filePath);
+                document.getElementById('editor').value = content;
+                currentFilePath = filePath;
+                
+                // 更新当前文件显示
+                const fileName = require('path').basename(filePath);
+                document.getElementById('currentFile').textContent = fileName;
+                
+                // 高亮选中的文件
+                document.querySelectorAll('.file-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                event.target.classList.add('selected');
+                
+                updateStatus('已打开: ' + fileName);
+            } catch (error) {
+                console.error('打开文件失败:', error);
+                updateStatus('打开文件失败');
+            }
+        }
+        
+        // 保存文件
+        async function saveFile() {
+            if (!currentFilePath) {
+                updateStatus('请先选择一个文件');
+                return;
+            }
+            
+            try {
+                const content = document.getElementById('editor').value;
+                await ipcRenderer.invoke('write-file', currentFilePath, content);
+                updateStatus('文件已保存');
+            } catch (error) {
+                console.error('保存文件失败:', error);
+                updateStatus('保存文件失败');
+            }
+        }
+        
+        // 刷新文件树
+        function refreshFileTree() {
+            if (currentFolderPath) {
+                loadFileTree(currentFolderPath);
+                updateStatus('文件树已刷新');
+            }
+        }
+        
+        // 切换预览模式（暂时未实现）
+        function togglePreview() {
+            updateStatus('预览功能即将上线');
+        }
+        
+        // 更新状态栏
+        function updateStatus(message) {
+            document.getElementById('statusText').textContent = message;
+        }
+        
+        // 快捷键支持
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                saveFile();
+            } else if (e.ctrlKey && e.key === 'p') {
+                e.preventDefault();
+                togglePreview();
+            }
+        });
+        
+        // 初始化
+        updateStatus('AI 知识库助手已启动');
+    </script>
+</body>
+</html>
